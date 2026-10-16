@@ -3,44 +3,635 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Analytics Filter Tests</title>
-<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<title>Analytics Test Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%237c3aed%22/%3E%3Cpath d=%22M4 8l3 3 5-6%22 stroke=%22white%22 stroke-width=%222%22 fill=%22none%22/%3E%3C/svg%3E">
 <style>
-  :root { --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --border: #d1d9e0; --head: #f6f8fa; --code: #eff1f3; --link: #0969da; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #3d444d; --head: #151b23; --code: #262c36; --link: #4493f8; }
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1d2129; --muted: #626a77; --border: #dfe3e8; --soft: #f0f2f5;
+  --accent: #7c3aed; --accent-soft: #f1eafe; --link: #5b21b6;
+  --pass: #1a7f37; --pass-bg: #dcf5e3; --fail: #c62828; --fail-bg: #fde3e3;
+  --blocked: #9a6700; --blocked-bg: #fff3c4; --na: #57606a; --na-bg: #e8ebef; --todo: #8c959f; --todo-bg: #ffffff;
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --panel: #171a21; --fg: #e6e8ec; --muted: #9aa2ae; --border: #2b303a; --soft: #1f232c;
+    --accent: #a78bfa; --accent-soft: #2a2140; --link: #c4b5fd;
+    --pass: #4ac26b; --pass-bg: #12301c; --fail: #ff7b72; --fail-bg: #3b1618;
+    --blocked: #e3b341; --blocked-bg: #3a2e0c; --na: #9aa2ae; --na-bg: #262b34; --todo: #6e7681; --todo-bg: #171a21;
+    --shadow: none;
   }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
-  main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 64px; }
-  h1 { font-size: 1.8em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
-  h2 { font-size: 1.35em; border-bottom: 1px solid var(--border); padding-bottom: .3em; margin-top: 2em; }
-  a { color: var(--link); }
-  code { background: var(--code); padding: .1em .35em; border-radius: 4px; font-size: .88em; }
-  .table-wrap { overflow-x: auto; margin: 12px 0 20px; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
-  th { background: var(--head); }
-  tr:nth-child(even) td { background: color-mix(in srgb, var(--head) 50%, transparent); }
-  .meta { color: var(--muted); font-size: .9em; }
-  nav a { margin-right: 14px; }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --panel: #171a21; --fg: #e6e8ec; --muted: #9aa2ae; --border: #2b303a; --soft: #1f232c;
+  --accent: #a78bfa; --accent-soft: #2a2140; --link: #c4b5fd;
+  --pass: #4ac26b; --pass-bg: #12301c; --fail: #ff7b72; --fail-bg: #3b1618;
+  --blocked: #e3b341; --blocked-bg: #3a2e0c; --na: #9aa2ae; --na-bg: #262b34; --todo: #6e7681; --todo-bg: #171a21;
+  --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif; }
+a { color: var(--link); }
+code { background: var(--soft); padding: .08em .35em; border-radius: 4px; font-size: .9em; word-break: break-all; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 16px; }
+
+header.top { position: sticky; top: 0; z-index: 20; background: var(--panel); border-bottom: 1px solid var(--border); }
+.top-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; flex-wrap: wrap; }
+.brand { display: flex; flex-direction: column; margin-right: auto; min-width: 220px; }
+.brand b { font-size: 16px; }
+.brand span { color: var(--muted); font-size: 12px; }
+.btn { border: 1px solid var(--border); background: var(--panel); padding: 6px 11px; border-radius: 7px; white-space: nowrap; }
+.btn:hover { background: var(--soft); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.small { padding: 3px 8px; font-size: 12px; }
+.btn.danger { color: var(--fail); }
+.saved { font-size: 12px; color: var(--muted); min-width: 110px; text-align: right; }
+.saved.warn { color: var(--fail); }
+
+.progress { display: flex; align-items: center; gap: 14px; padding: 0 0 10px; flex-wrap: wrap; }
+.bar { flex: 1; min-width: 200px; height: 10px; border-radius: 6px; overflow: hidden; display: flex; background: var(--soft); border: 1px solid var(--border); }
+.bar i { display: block; height: 100%; }
+.legend { display: flex; gap: 12px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend b { color: var(--fg); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; border: 1px solid var(--border); }
+
+nav.tabs { display: flex; gap: 2px; }
+nav.tabs button { border: 0; background: none; padding: 9px 14px; border-bottom: 2px solid transparent; color: var(--muted); font-weight: 600; }
+nav.tabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0 12px; }
+.filters input[type=search] { flex: 1; min-width: 200px; }
+.field, .filters input, .filters select { border: 1px solid var(--border); background: var(--panel); border-radius: 7px; padding: 6px 9px; }
+.chk { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+
+.group-h { margin: 22px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.card-h { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; flex-wrap: wrap; }
+.card-h .id { font-weight: 700; color: var(--accent); min-width: 52px; }
+.card-h .t { font-weight: 600; flex: 1; min-width: 220px; }
+.card-h .caret { color: var(--muted); transition: transform .15s; }
+.card.open .caret { transform: rotate(90deg); }
+.badges { display: flex; gap: 5px; flex-wrap: wrap; }
+.badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--soft); color: var(--muted); border: 1px solid var(--border); }
+.badge.intent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.minis { display: flex; gap: 3px; }
+.mini { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); }
+.card-b { display: none; border-top: 1px solid var(--border); padding: 14px; }
+.card.open .card-b { display: block; }
+
+.info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin-bottom: 14px; }
+.info .full { grid-column: 1 / -1; }
+.lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 3px; }
+.urlrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.urlrow code { flex: 1; padding: 6px 8px; min-width: 0; }
+
+.flowtabs { display: flex; gap: 6px; margin: 4px 0 10px; flex-wrap: wrap; }
+.flowtabs button { border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.flowtabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.flowmeta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.flowmeta input, .ev input, .ev textarea, .notes textarea, .notes input { width: 100%; border: 1px solid var(--border); background: var(--panel); border-radius: 6px; padding: 5px 7px; }
+
+.events { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ev { border: 1px solid var(--border); border-radius: 9px; padding: 10px; background: var(--panel); display: flex; flex-direction: column; gap: 7px; border-top-width: 4px; }
+.ev[data-s=pass] { border-top-color: var(--pass); }
+.ev[data-s=fail] { border-top-color: var(--fail); }
+.ev[data-s=blocked] { border-top-color: var(--blocked); }
+.ev[data-s=na] { border-top-color: var(--na); }
+.ev h4 { margin: 0; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.ev .how { font-size: 11.5px; color: var(--muted); }
+.ev .exp { font-size: 12.5px; background: var(--soft); border-radius: 6px; padding: 6px 8px; }
+.seg { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--border); background: var(--panel); padding: 5px 0; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.seg button:last-child { border-right: 0; }
+.seg button.on[data-v=pass] { background: var(--pass-bg); color: var(--pass); }
+.seg button.on[data-v=fail] { background: var(--fail-bg); color: var(--fail); }
+.seg button.on[data-v=blocked] { background: var(--blocked-bg); color: var(--blocked); }
+.seg button.on[data-v=na] { background: var(--na-bg); color: var(--na); }
+.seg button.on[data-v=not_run] { background: var(--soft); color: var(--fg); }
+.trio { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.delta { font-size: 12px; font-weight: 700; align-self: end; padding: 5px 0; }
+.delta.up { color: var(--pass); } .delta.same { color: var(--muted); } .delta.down { color: var(--fail); }
+.stamp { font-size: 11px; color: var(--muted); }
+details.verify summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+details.verify p { font-size: 12px; margin: 4px 0 0; }
+
+.checks { margin: 14px 0 0; display: grid; gap: 5px; }
+.checks label { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.notes { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 14px; }
+
+table.matrix { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.matrix th, .matrix td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: left; font-size: 13px; }
+.matrix th { background: var(--soft); font-size: 12px; color: var(--muted); }
+.matrix tr:last-child td { border-bottom: 0; }
+.matrix td.cell { text-align: center; cursor: pointer; font-weight: 600; font-size: 12px; }
+.matrix tr.grp td { background: var(--soft); font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
+.table-scroll { overflow-x: auto; margin: 16px 0 40px; }
+.s-pass { background: var(--pass-bg); color: var(--pass); }
+.s-fail { background: var(--fail-bg); color: var(--fail); }
+.s-blocked { background: var(--blocked-bg); color: var(--blocked); }
+.s-na { background: var(--na-bg); color: var(--na); }
+.s-not_run { color: var(--todo); }
+
+.ref { display: grid; gap: 14px; margin: 16px 0 40px; }
+.ref section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.ref h3 { margin: 0 0 8px; font-size: 15px; }
+.ref table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.ref section { overflow-x: auto; }
+.ref td, .ref th { overflow-wrap: anywhere; border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+.ref th { background: var(--soft); }
+
+dialog { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--fg); padding: 0; width: min(760px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+.dlg-h { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.dlg-b { padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; max-height: 70vh; overflow: auto; }
+.dlg-b label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.dlg-b input { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; padding: 6px 8px; color: var(--fg); font-size: 13px; }
+.dlg-f { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+.empty { color: var(--muted); padding: 30px; text-align: center; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
+.toast.on { opacity: 1; }
+
+@media (max-width: 1000px) { .events { grid-template-columns: repeat(2, minmax(0, 1fr)); } .flowmeta { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) {
+  header.top { position: static; }
+  nav.tabs { overflow-x: auto; }
+  nav.tabs .btn { display: none; }
+  .top-row .btn { padding: 5px 9px; font-size: 13px; }
+  .events, .info, .notes, .dlg-b { grid-template-columns: 1fr; }
+  .flowmeta { grid-template-columns: 1fr; }
+  .brand { min-width: 0; }
+  .saved { min-width: 0; }
+}
 </style>
 </head>
 <body>
-<main>
-  <nav class="meta"><a href="#" data-doc="TEST_CASES.md">Test cases</a><a href="#" data-doc="README.md">README</a><span id="updated"></span></nav>
-  <article id="doc">Loading…</article>
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <div class="brand"><b>ShopperSense analytics test tracker</b><span id="sub"></span></div>
+      <span class="saved" id="saved"></span>
+      <button class="btn" id="b-settings">Settings</button>
+      <button class="btn" id="b-csv">Export CSV</button>
+      <button class="btn" id="b-json">Export JSON</button>
+      <button class="btn" id="b-import">Import JSON</button>
+      <button class="btn danger" id="b-reset">Reset</button>
+      <input type="file" id="f-import" accept="application/json" hidden>
+    </div>
+    <div class="progress">
+      <div class="bar" id="bar"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="cases">Use cases</button>
+      <button data-tab="matrix">Matrix</button>
+      <button data-tab="ref">Reference</button>
+      <a class="btn small" href="results.html" style="margin-left:auto;align-self:center">Automated run results</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="v-cases">
+    <div class="filters">
+      <input type="search" id="q" placeholder="Search id, title, URL, notes…">
+      <select id="fg"><option value="">All groups</option></select>
+      <select id="fs">
+        <option value="">Any status</option>
+        <option value="not_run">Has not run</option>
+        <option value="fail">Has fail</option>
+        <option value="blocked">Has blocked</option>
+        <option value="pass">All passed</option>
+      </select>
+      <button class="btn small" id="b-expand">Expand all</button>
+      <button class="btn small" id="b-collapse">Collapse all</button>
+    </div>
+    <div id="list"></div>
+  </div>
+  <div id="v-matrix" hidden><div class="table-scroll" id="matrix"></div></div>
+  <div id="v-ref" hidden><div class="ref" id="ref"></div></div>
 </main>
+
+<dialog id="dlg">
+  <div class="dlg-h"><b>Settings (fill the URL placeholders)</b><button class="btn small" data-close>Close</button></div>
+  <div class="dlg-b" id="dlg-b"></div>
+  <div class="dlg-f"><button class="btn" id="b-defaults">Restore defaults</button><button class="btn primary" data-close>Done</button></div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="usecases.js"></script>
 <script>
-  async function load(doc) {
-    const res = await fetch(doc + '?t=' + Date.now());
-    const md = await res.text();
-    const el = document.getElementById('doc');
-    el.innerHTML = marked.parse(md);
-    el.querySelectorAll('table').forEach(t => { const w = document.createElement('div'); w.className = 'table-wrap'; t.replaceWith(w); w.appendChild(t); });
-    document.getElementById('updated').textContent = ' · loaded ' + new Date().toLocaleTimeString();
+(() => {
+  const KEY = 'ss-analytics-test-tracker-v1';
+  const EVENTS = window.SS_EVENTS, FLOWS = window.SS_FLOWS, GROUPS = window.SS_GROUPS, CASES = window.SS_USE_CASES;
+  const STATUSES = [
+    { v: 'not_run', label: 'Not run' }, { v: 'pass', label: 'Pass' }, { v: 'fail', label: 'Fail' },
+    { v: 'blocked', label: 'Blocked' }, { v: 'na', label: 'N/A' },
+  ];
+  const COLOR = { pass: 'var(--pass)', fail: 'var(--fail)', blocked: 'var(--blocked)', na: 'var(--na)', not_run: 'var(--todo-bg)' };
+
+  // ---------- state ----------
+  const fresh = () => ({ version: 1, settings: { ...window.SS_DEFAULT_SETTINGS }, results: {}, flowMeta: {}, checks: {}, caseNotes: {},
+    ui: { tab: 'cases', open: [], flow: {}, q: '', fg: '', fs: '' } });
+  let storageOk = true;
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return fresh();
+      const s = JSON.parse(raw);
+      const base = fresh();
+      return { ...base, ...s, settings: { ...base.settings, ...(s.settings || {}) }, ui: { ...base.ui, ...(s.ui || {}) } };
+    } catch (e) { storageOk = false; return fresh(); }
   }
-  document.querySelectorAll('nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); load(a.dataset.doc); }));
-  load('TEST_CASES.md');
+  let state = load();
+  let saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); storageOk = true; setSaved('Saved ' + new Date().toLocaleTimeString()); }
+      catch (e) { storageOk = false; setSaved('Not saved: browser storage blocked. Use Export JSON.', true); }
+    }, 150);
+  }
+  function setSaved(t, warn) { const el = $('#saved'); el.textContent = t; el.classList.toggle('warn', !!warn); }
+
+  // ---------- helpers ----------
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fill = (t) => String(t ?? '').replace(/\{(\w+)\}/g, (m, k) => state.settings[k] ?? m);
+  const rk = (id, flow, ev) => `${id}|${flow}|${ev}`;
+  const res = (id, flow, ev) => state.results[rk(id, flow, ev)] || {};
+  const meta = (id, flow) => state.flowMeta[`${id}|${flow}`] || {};
+  const statusOf = (id, flow, ev) => res(id, flow, ev).status || 'not_run';
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
+
+  function attrText(uc) {
+    const a = uc.attribution || {};
+    const parts = [];
+    parts.push(a.intent ? `intent ${fill(a.intent)}` : 'intent default (Current PDP)');
+    parts.push(`source ${fill(a.source || 'organic')}`);
+    if (a.exp) parts.push(`experiment ${fill('{exp}')} / ${fill(a.exp)}`);
+    return parts.join(', ');
+  }
+  function expectedText(uc, flow, ev) {
+    const o = uc.expected || {};
+    if (o[`${ev}_${flow}`]) return fill(o[`${ev}_${flow}`]);
+    if (o[ev]) return fill(o[ev]);
+    const a = uc.attribution || {};
+    const where = attrText(uc);
+    const both = a.exp ? ' Must update in both the experiment report and intent analytics.' : '';
+    if (ev === 'pv') return `intent-tab-click → 3001. Visitors +1 under ${where}.${both}`;
+    if (ev === 'atc') return flow === 'buynow'
+      ? `Buy Now click → 3001. ATC +1 (via Buy Now) under ${where}.${both}`
+      : `cta-click → 3001. ATC +1 (via ATC button) under ${where}. Cart line has _buywhy_session_id.${both}`;
+    if (ev === 'co') return `checkout_page → 3001. Checkout +1 under ${where}.${both}`;
+    if (ev === 'pu') {
+      const tag = a.intent ? ` Order & customer tagged ss_int_${fill(a.intent).replace(/\s+/g, '_')}.` : ' No ss_int_ tags on order/customer.';
+      return `Order matched to the session. Conversion +1, revenue +${fill('{productPrice}')} under ${where}.${tag}${both}`;
+    }
+    return '';
+  }
+  function stepsText(uc, flow) {
+    const urls = uc.url2 ? 'Open URL 1, then URL 2' : 'Open the URL';
+    const atc = flow === 'buynow' ? 'Click Buy now (or a wallet button)' : 'Click Add to cart';
+    return [`${urls} in a fresh session; wait for the page to finish loading.`, `${atc}.`, flow === 'buynow' ? 'You land on checkout.' : 'Go to the cart and click Check out.',
+      'Pay with Bogus Gateway (card 1, any future expiry, CVC 123). Note the confirmation #.', 'Open the analytics page, click View report, compare before/after.'];
+  }
+
+  // ---------- counts ----------
+  function allChecks(cases = CASES) {
+    const out = [];
+    cases.forEach(uc => uc.flows.forEach(fl => EVENTS.forEach(e => out.push({ uc, fl, ev: e.key, s: statusOf(uc.id, fl, e.key) }))));
+    return out;
+  }
+  function renderProgress() {
+    const all = allChecks();
+    const c = { pass: 0, fail: 0, blocked: 0, na: 0, not_run: 0 };
+    all.forEach(x => c[x.s]++);
+    const total = all.length || 1;
+    $('#bar').innerHTML = ['pass', 'fail', 'blocked', 'na'].map(k => `<i style="width:${(c[k] / total) * 100}%;background:${COLOR[k]}"></i>`).join('');
+    const done = total - c.not_run;
+    $('#legend').innerHTML = `<span><b>${done}/${all.length}</b> event checks done</span>` +
+      STATUSES.map(s => `<span><span class="dot" style="background:${COLOR[s.v]}"></span>${s.label} <b>${c[s.v]}</b></span>`).join('');
+    $('#sub').textContent = `${state.settings.store} · branch ${state.settings.branch}${state.settings.tester ? ' · tester ' + state.settings.tester : ''}`;
+  }
+
+  // ---------- filtering ----------
+  function visibleCases() {
+    const q = (state.ui.q || '').toLowerCase().trim();
+    return CASES.filter(uc => {
+      if (state.ui.fg && uc.group !== state.ui.fg) return false;
+      if (q) {
+        const hay = [uc.id, uc.title, uc.summary, uc.legacy, fill(uc.url), fill(uc.url2 || ''), state.caseNotes[uc.id]?.notes,
+          ...uc.flows.flatMap(fl => EVENTS.map(e => res(uc.id, fl, e.key).notes))].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      const st = allChecks([uc]).map(x => x.s);
+      if (state.ui.fs === 'pass') return st.every(s => s === 'pass' || s === 'na');
+      if (state.ui.fs) return st.includes(state.ui.fs);
+      return true;
+    });
+  }
+
+  // ---------- render: cards ----------
+  function evPanel(uc, fl, e) {
+    const r = res(uc.id, fl, e.key), s = r.status || 'not_run';
+    const b = parseFloat(r.before), a = parseFloat(r.after);
+    let delta = '';
+    if (!isNaN(b) && !isNaN(a)) { const d = Math.round((a - b) * 100) / 100; delta = `<span class="delta ${d > 0 ? 'up' : d < 0 ? 'down' : 'same'}">Δ ${d > 0 ? '+' : ''}${d}</span>`; }
+    const base = `r|${uc.id}|${fl}|${e.key}`;
+    return `<div class="ev" data-s="${s}">
+      <h4>${esc(e.label)} <span class="badge">${esc(e.metric)}</span></h4>
+      <div class="how">${esc(e.how)}</div>
+      <div class="exp"><div class="lbl">Expected</div>${esc(expectedText(uc, fl, e.key))}</div>
+      <div class="seg">${STATUSES.map(x => `<button data-set="${base}|status" data-v="${x.v}" class="${s === x.v ? 'on' : ''}">${x.label}</button>`).join('')}</div>
+      <div class="trio">
+        <label><div class="lbl">Code</div><input data-k="${base}|code" value="${esc(r.code)}" placeholder="3001"></label>
+        <label><div class="lbl">Before</div><input data-k="${base}|before" value="${esc(r.before)}" inputmode="decimal"></label>
+        <label><div class="lbl">After</div><input data-k="${base}|after" value="${esc(r.after)}" inputmode="decimal"></label>
+      </div>
+      ${delta}
+      <label><div class="lbl">Actual / notes</div><textarea rows="2" data-k="${base}|notes">${esc(r.notes)}</textarea></label>
+      <details class="verify"><summary>How to verify</summary><p>${esc(e.verify)}</p></details>
+      ${r.updatedAt ? `<div class="stamp">Updated ${esc(new Date(r.updatedAt).toLocaleString())}${r.by ? ' by ' + esc(r.by) : ''}</div>` : ''}
+    </div>`;
+  }
+  function cardHtml(uc) {
+    const open = state.ui.open.includes(uc.id);
+    const fl = uc.flows.includes(state.ui.flow[uc.id]) ? state.ui.flow[uc.id] : uc.flows[0];
+    const a = uc.attribution || {};
+    const minis = uc.flows.flatMap(f => EVENTS.map(e => { const s = statusOf(uc.id, f, e.key);
+      return `<span class="mini" title="${FLOWS[f].short} · ${e.label}: ${s}" style="background:${COLOR[s]}"></span>`; })).join('');
+    const m = meta(uc.id, fl);
+    const mb = `m|${uc.id}|${fl}`;
+    const checks = (uc.checks || []).map((c, i) => {
+      const k = `${uc.id}|${i}`;
+      return `<label><input type="checkbox" data-c="${k}" ${state.checks[k] ? 'checked' : ''}> <span>${esc(fill(c))}</span></label>`;
+    }).join('');
+    const n = state.caseNotes[uc.id] || {};
+    return `<div class="card ${open ? 'open' : ''}" id="card-${uc.id}">
+      <div class="card-h" data-toggle="${uc.id}">
+        <span class="caret">▶</span><span class="id">${uc.id}</span><span class="t">${esc(fill(uc.title))}</span>
+        <span class="badges">
+          ${a.intent ? `<span class="badge intent">${esc(fill(a.intent))}</span>` : ''}
+          ${a.source && a.source !== 'organic' ? `<span class="badge">utm: ${esc(fill(a.source))}</span>` : ''}
+          ${a.exp ? `<span class="badge">exp: ${esc(fill(a.exp))}</span>` : ''}
+        </span>
+        <span class="minis">${minis}</span>
+      </div>
+      <div class="card-b">
+        <div class="info">
+          <div class="full"><div class="lbl">${uc.url2 ? 'URL 1' : 'URL'}</div>${urlRow(fill(uc.url))}</div>
+          ${uc.url2 ? `<div class="full"><div class="lbl">URL 2</div>${urlRow(fill(uc.url2))}</div>` : ''}
+          <div><div class="lbl">What this covers</div>${esc(fill(uc.summary))}</div>
+          <div><div class="lbl">Preconditions</div>${esc(fill(uc.pre))}</div>
+          <div><div class="lbl">Attribute every event to</div>${esc(attrText(uc))}</div>
+          <div><div class="lbl">Original test IDs</div>${esc(uc.legacy || '—')}</div>
+        </div>
+        <div class="flowtabs">${uc.flows.map(f => `<button data-flow="${uc.id}|${f}" class="${f === fl ? 'on' : ''}">${FLOWS[f].label}</button>`).join('')}</div>
+        <details class="verify" style="margin-bottom:10px"><summary>Steps for this flow</summary><p>${stepsText(uc, fl).map((s, i) => `${i + 1}. ${esc(s)}`).join('<br>')}</p></details>
+        <div class="flowmeta">
+          <label><div class="lbl">Session ID</div><input data-k="${mb}|session" value="${esc(m.session)}" placeholder="ss_…"></label>
+          <label><div class="lbl">Cart token</div><input data-k="${mb}|cart" value="${esc(m.cart)}"></label>
+          <label><div class="lbl">Order / confirmation #</div><input data-k="${mb}|order" value="${esc(m.order)}"></label>
+          <label><div class="lbl">Test date</div><input type="date" data-k="${mb}|date" value="${esc(m.date)}"></label>
+        </div>
+        <div class="events">${EVENTS.map(e => evPanel(uc, fl, e)).join('')}</div>
+        ${checks ? `<div class="checks"><div class="lbl">Supporting checks</div>${checks}</div>` : ''}
+        <div class="notes">
+          <label><div class="lbl">Use case notes</div><textarea rows="2" data-n="${uc.id}|notes">${esc(n.notes)}</textarea></label>
+          <label><div class="lbl">Bug / ticket link</div><input data-n="${uc.id}|bug" value="${esc(n.bug)}" placeholder="https://…"></label>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn small" data-bulk="${uc.id}|${fl}|pass">Mark this flow all Pass</button>
+          <button class="btn small" data-bulk="${uc.id}|${fl}|na">Mark this flow N/A</button>
+          <button class="btn small danger" data-clear="${uc.id}|${fl}">Clear this flow</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  function urlRow(u) {
+    return `<div class="urlrow"><code>${esc(u)}</code><button class="btn small" data-copy="${esc(u)}">Copy</button><a class="btn small" href="${esc(u)}" target="_blank" rel="noopener">Open</a></div>`;
+  }
+  function renderList() {
+    const vis = visibleCases();
+    if (!vis.length) { $('#list').innerHTML = '<div class="empty">No use cases match the filters.</div>'; return; }
+    $('#list').innerHTML = GROUPS.map(g => {
+      const items = vis.filter(uc => uc.group === g.key);
+      return items.length ? `<div class="group-h">${esc(g.label)}</div>` + items.map(cardHtml).join('') : '';
+    }).join('');
+  }
+  function renderCard(id) {
+    const uc = CASES.find(c => c.id === id); const el = $(`#card-${id}`);
+    if (!uc || !el) return;
+    const active = document.activeElement, key = active?.dataset?.k || active?.dataset?.n, pos = active?.selectionStart;
+    el.outerHTML = cardHtml(uc);
+    if (key) { const again = document.querySelector(`[data-k="${key}"], [data-n="${key}"]`); if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch {} } }
+  }
+
+  // ---------- render: matrix ----------
+  function renderMatrix() {
+    const head = `<tr><th>Use case</th><th>Flow</th>${EVENTS.map(e => `<th>${e.label}</th>`).join('')}<th>Order #</th></tr>`;
+    const rows = GROUPS.map(g => {
+      const cs = CASES.filter(c => c.group === g.key);
+      if (!cs.length) return '';
+      return `<tr class="grp"><td colspan="${EVENTS.length + 3}">${esc(g.label)}</td></tr>` + cs.flatMap(uc => uc.flows.map(fl => `<tr>
+        <td><b>${uc.id}</b> ${esc(fill(uc.title))}</td><td>${FLOWS[fl].short}</td>
+        ${EVENTS.map(e => { const r = res(uc.id, fl, e.key), s = r.status || 'not_run';
+          return `<td class="cell s-${s}" data-jump="${uc.id}|${fl}" title="${esc(r.notes || '')}">${STATUSES.find(x => x.v === s).label}${r.code ? ` · ${esc(r.code)}` : ''}</td>`; }).join('')}
+        <td>${esc(meta(uc.id, fl).order || '')}</td></tr>`)).join('');
+    }).join('');
+    $('#matrix').innerHTML = `<table class="matrix">${head}${rows}</table>`;
+  }
+
+  // ---------- render: reference ----------
+  function renderRef() {
+    const s = state.settings;
+    $('#ref').innerHTML = `
+      <section><h3>What the app does</h3>
+        <p>ShopperSense (BuyWhy) generates intent-specific product pages (PDPs) for a merchant's products. A shopper arriving from an ad or an intent link sees content matched to their motivation (e.g. <em>${esc(s.intentName)}</em>), and the app can A/B test those pages against a control.</p>
+        <p>Analytics answer one question per intent: <b>which shopper intent turns visitors into revenue?</b> Each product's analytics page shows, per intent, Visitors → ATC rate → Checkout rate → CVR, plus Revenue, AOV and RPV, and experiment reports compare control vs variant.</p>
+        <p>The branch <code>${esc(s.branch)}</code> adds a server-side filter so that cart, checkout and order analytics are only recorded for products with generated intents (<code>ProductIntentDetail</code> rows). Products the merchant never set up in ShopperSense should not be counted.</p>
+      </section>
+      <section><h3>The 4 analytics events</h3>
+        <table><tr><th>Event</th><th>Report metric</th><th>Sent by</th><th>How to verify</th></tr>
+        ${EVENTS.map(e => `<tr><td><b>${esc(e.label)}</b></td><td>${esc(e.metric)}</td><td>${esc(e.how)}</td><td>${esc(e.verify)}</td></tr>`).join('')}</table>
+      </section>
+      <section><h3>Server response codes</h3>
+        <table><tr><th>Code</th><th>Meaning</th></tr>
+        <tr><td><code>3001</code></td><td>Saved and forwarded to the analytics backend</td></tr>
+        <tr><td><code>3002</code></td><td>Saved, not forwarded (ANALYTICS_BASE_URL not set)</td></tr>
+        <tr><td><code>3003</code></td><td>Add to cart already recorded for this cart</td></tr>
+        <tr><td><code>3004</code></td><td>Checkout already recorded for this cart</td></tr>
+        <tr><td><code>2001</code></td><td>Event type not tracked</td></tr>
+        <tr><td><code>2004</code></td><td>Dropped: product has no ShopperSense intents (new filter)</td></tr>
+        <tr><td><code>1001</code></td><td>Analytics payload missing</td></tr></table>
+      </section>
+      <section><h3>Before each use case</h3>
+        <ol>
+          <li>Use a fresh session: new incognito window, or clear the <code>buywhy_session_id</code> cookie and sessionStorage, and <code>buywhy_product_data</code> in localStorage.</li>
+          <li>Empty the cart (<code>/cart/clear.js</code>) so earlier items don't carry over.</li>
+          <li>Open the <a href="${esc(s.analyticsUrl)}" target="_blank" rel="noopener">analytics page</a>, click <b>View report</b> and enter the <b>Before</b> numbers.</li>
+          <li>Open DevTools → Network and filter <code>api/pixels|apps/buywhy</code> to read each event's response code.</li>
+          <li>Storefront password, if asked: set it in Settings.${s.storePassword ? ` Current: <code>${esc(s.storePassword)}</code>` : ''}</li>
+        </ol>
+      </section>
+      <section><h3>Useful storefront checks</h3>
+        <table>
+          <tr><td><code>sessionStorage.buywhy_session_id</code></td><td>Session ID the tracker uses for this tab</td></tr>
+          <tr><td><code>localStorage.buywhy_product_data</code></td><td>Per-session, per-product stored intent / source / experiment</td></tr>
+          <tr><td><code>/cart.js</code> → <code>items[].properties._buywhy_session_id</code></td><td>Links the cart line (and later the order) to the session</td></tr>
+          <tr><td>Shopify admin → Orders</td><td>Order and customer tags like <code>ss_int_…</code></td></tr>
+        </table>
+      </section>
+      <section><h3>Data storage</h3><p>Results are saved in this browser's localStorage under <code>${KEY}</code> on every change. Use <b>Export JSON</b> to back up or move results to another browser, and <b>Export CSV</b> to share a table. Test cases themselves live in <code>usecases.js</code>.</p></section>`;
+  }
+
+  // ---------- render all ----------
+  function renderTabs() {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.ui.tab));
+    $('#v-cases').hidden = state.ui.tab !== 'cases';
+    $('#v-matrix').hidden = state.ui.tab !== 'matrix';
+    $('#v-ref').hidden = state.ui.tab !== 'ref';
+  }
+  function renderAll() {
+    renderTabs(); renderProgress();
+    if (state.ui.tab === 'cases') renderList();
+    if (state.ui.tab === 'matrix') renderMatrix();
+    if (state.ui.tab === 'ref') renderRef();
+  }
+
+  // ---------- events ----------
+  function setResult(id, fl, ev, field, val) {
+    const k = rk(id, fl, ev);
+    const r = { ...(state.results[k] || {}) };
+    r[field] = val; r.updatedAt = new Date().toISOString(); if (state.settings.tester) r.by = state.settings.tester;
+    state.results[k] = r;
+    const mk = `${id}|${fl}`;
+    if (field === 'status' && !(state.flowMeta[mk] || {}).date) state.flowMeta[mk] = { ...(state.flowMeta[mk] || {}), date: new Date().toISOString().slice(0, 10) };
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('button, [data-toggle], td[data-jump]');
+    if (!t) return;
+    if (t.dataset.tab) { state.ui.tab = t.dataset.tab; save(); renderAll(); return; }
+    if (t.dataset.toggle) {
+      const id = t.dataset.toggle; const o = state.ui.open;
+      state.ui.open = o.includes(id) ? o.filter(x => x !== id) : [...o, id];
+      save(); $(`#card-${id}`).classList.toggle('open'); return;
+    }
+    if (t.dataset.flow) { const [id, fl] = t.dataset.flow.split('|'); state.ui.flow[id] = fl; save(); renderCard(id); return; }
+    if (t.dataset.set) {
+      const [, id, fl, ev, field] = t.dataset.set.split('|');
+      setResult(id, fl, ev, field, t.dataset.v); save(); renderCard(id); renderProgress(); return;
+    }
+    if (t.dataset.bulk) {
+      const [id, fl, v] = t.dataset.bulk.split('|');
+      EVENTS.forEach(ev => setResult(id, fl, ev.key, 'status', v)); save(); renderCard(id); renderProgress(); return;
+    }
+    if (t.dataset.clear) {
+      const [id, fl] = t.dataset.clear.split('|');
+      if (!confirm(`Clear all results for ${id} (${FLOWS[fl].label})?`)) return;
+      EVENTS.forEach(ev => delete state.results[rk(id, fl, ev.key)]); delete state.flowMeta[`${id}|${fl}`];
+      save(); renderCard(id); renderProgress(); return;
+    }
+    if (t.dataset.copy) { copy(t.dataset.copy); return; }
+    if (t.dataset.jump) {
+      const [id, fl] = t.dataset.jump.split('|');
+      state.ui.tab = 'cases'; state.ui.flow[id] = fl; if (!state.ui.open.includes(id)) state.ui.open.push(id);
+      state.ui.q = ''; state.ui.fg = ''; state.ui.fs = ''; syncFilters(); save(); renderAll();
+      $(`#card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
+    }
+    if (t.hasAttribute('data-close')) { $('#dlg').close(); renderAll(); return; }
+  });
+  document.addEventListener('input', (e) => {
+    const t = e.target, d = t.dataset;
+    if (d.k) {
+      const [kind, id, fl, ev, field] = d.k.split('|');
+      if (kind === 'r') { setResult(id, fl, ev, field, t.value); save(); if (field === 'before' || field === 'after') deferCard(id); }
+      if (kind === 'm') { const mk = `${id}|${fl}`; state.flowMeta[mk] = { ...(state.flowMeta[mk] || {}), [ev]: t.value }; save(); }
+      return;
+    }
+    if (d.n) { const [id, field] = d.n.split('|'); state.caseNotes[id] = { ...(state.caseNotes[id] || {}), [field]: t.value }; save(); return; }
+    if (d.s) { state.settings[d.s] = t.value; save(); renderProgress(); return; }
+  });
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.dataset.c) { state.checks[t.dataset.c] = t.checked; save(); }
+  });
+  let cardTimer = null;
+  function deferCard(id) { clearTimeout(cardTimer); cardTimer = setTimeout(() => renderCard(id), 500); }
+
+  function syncFilters() { $('#q').value = state.ui.q; $('#fg').value = state.ui.fg; $('#fs').value = state.ui.fs; }
+  $('#fg').innerHTML += GROUPS.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('');
+  $('#q').addEventListener('input', (e) => { state.ui.q = e.target.value; save(); renderList(); });
+  $('#fg').addEventListener('change', (e) => { state.ui.fg = e.target.value; save(); renderList(); });
+  $('#fs').addEventListener('change', (e) => { state.ui.fs = e.target.value; save(); renderList(); });
+  $('#b-expand').onclick = () => { state.ui.open = visibleCases().map(c => c.id); save(); renderList(); };
+  $('#b-collapse').onclick = () => { state.ui.open = []; save(); renderList(); };
+
+  // settings dialog
+  const SETTING_LABELS = {
+    tester: 'Tester name', branch: 'Branch under test', store: 'Store domain', storePassword: 'Storefront password',
+    product: 'ShopperSense product handle', productName: 'ShopperSense product name', productId: 'ShopperSense product ID', productPrice: 'ShopperSense product price',
+    product2: 'Second ShopperSense product handle', product2Name: 'Second ShopperSense product name',
+    nonss: 'Non-ShopperSense product handle', nonssName: 'Non-ShopperSense product name', nonssPrice: 'Non-ShopperSense product price',
+    intent: 'Intent handle (?intent=)', intentName: 'Intent display name', trace: 'Intent trace ID (ss_trace_id)',
+    exp: 'Experiment ID (sstest)', variant: 'Variant name', utm: 'utm_source value', template: 'Theme template (?view=)', analyticsUrl: 'Analytics page URL',
+  };
+  function renderSettings() {
+    $('#dlg-b').innerHTML = Object.keys(window.SS_DEFAULT_SETTINGS).map(k =>
+      `<label${k === 'analyticsUrl' ? ' style="grid-column:1/-1"' : ''}>${esc(SETTING_LABELS[k] || k)}<input data-s="${k}" value="${esc(state.settings[k])}"></label>`).join('');
+  }
+  $('#b-settings').onclick = () => { renderSettings(); $('#dlg').showModal(); };
+  $('#b-defaults').onclick = () => { if (confirm('Restore default settings?')) { state.settings = { ...window.SS_DEFAULT_SETTINGS }; save(); renderSettings(); } };
+
+  // export / import / reset
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+  $('#b-json').onclick = () => download(`ss-analytics-tests-${stamp()}.json`, JSON.stringify(state, null, 2), 'application/json');
+  $('#b-csv').onclick = () => {
+    const cols = ['Use case', 'Title', 'Group', 'Flow', 'Event', 'Status', 'Code', 'Before', 'After', 'Delta', 'Expected', 'Actual / notes', 'Session ID', 'Cart token', 'Order #', 'Test date', 'Updated', 'By'];
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [cols.map(q).join(',')];
+    CASES.forEach(uc => uc.flows.forEach(fl => EVENTS.forEach(e => {
+      const r = res(uc.id, fl, e.key), m = meta(uc.id, fl);
+      const b = parseFloat(r.before), a = parseFloat(r.after);
+      lines.push([uc.id, fill(uc.title), GROUPS.find(g => g.key === uc.group)?.label, FLOWS[fl].label, e.label,
+        STATUSES.find(s => s.v === (r.status || 'not_run')).label, r.code, r.before, r.after, (!isNaN(a) && !isNaN(b)) ? Math.round((a - b) * 100) / 100 : '',
+        expectedText(uc, fl, e.key), r.notes, m.session, m.cart, m.order, m.date, r.updatedAt, r.by].map(q).join(','));
+    })));
+    download(`ss-analytics-tests-${stamp()}.csv`, lines.join('\n'), 'text/csv');
+  };
+  $('#b-import').onclick = () => $('#f-import').click();
+  $('#f-import').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const s = JSON.parse(await f.text());
+      if (!s || typeof s !== 'object' || !s.results) throw new Error('not a tracker export');
+      if (!confirm('Replace the current results with this file?')) return;
+      const base = fresh();
+      state = { ...base, ...s, settings: { ...base.settings, ...(s.settings || {}) }, ui: { ...base.ui, ...(s.ui || {}) } };
+      save(); syncFilters(); renderAll(); toast('Imported');
+    } catch (err) { alert('Could not import: ' + err.message); }
+    e.target.value = '';
+  };
+  $('#b-reset').onclick = () => {
+    if (!confirm('Delete ALL saved results in this browser? Export JSON first if you need them.')) return;
+    const settings = state.settings; state = fresh(); state.settings = settings; save(); syncFilters(); renderAll(); toast('Results cleared');
+  };
+  async function copy(t) {
+    try { await navigator.clipboard.writeText(t); }
+    catch { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    toast('Copied');
+  }
+
+  syncFilters(); renderAll();
+  setSaved(storageOk ? 'Saved locally' : 'Browser storage blocked. Use Export JSON.', !storageOk);
+})();
 </script>
 </body>
 </html>
