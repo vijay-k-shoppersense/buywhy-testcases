@@ -35,7 +35,7 @@ The server should only record cart, checkout and order analytics for products th
 | TC-05 | Add to cart, non-ShopperSense product, sent straight to the local server | `curl` POST to `/api/pixels` | `2004` | `2004` | ✅ | R2 |
 | TC-06 | Checkout, mixed cart | Tab B → `/checkout` with Sherwani + Snowboard | `checkout_page` → `3001`; only the Sherwani line item is stored | `3001`. Stored line items not yet checked in analytics | ⏳ | R2 |
 | TC-07 | Checkout attribution across tabs | Intent set in tab A; checkout started from tab B | Sherwani line item keeps Plateau Breakthrough | Tab B got a new session (`…r51xd71w`), so both line items were sent as `intent: default` | ⚠️ | R2 |
-| TC-08 | Purchase, mixed cart | Pay with Bogus Gateway (card `1`, 12/27, CVC 123) | Order recorded; Plateau Breakthrough conversions +1; Snowboard not attributed | Card-field step timed out; order not placed yet | ⏳ | R2 |
+| TC-08 | Purchase, mixed cart | Pay with Bogus Gateway (card `1`, 12/27, CVC 123) | Order recorded; Plateau Breakthrough conversions +1; Snowboard not attributed | Order placed by hand at the handoff step: Confirmation #CGUIJ0RF2, cart `hWNI2lueCZfKaU4oQVxYzkJQ`, $5,699.95. Analytics not yet checked | ⏳ | R2 |
 | TC-09 | Checkout, non-ShopperSense products only | Cart with only the Snowboard → `/checkout` | `checkout_page` → `2004` | — | ⬜ | — |
 | TC-10 | Purchase, non-ShopperSense products only | Complete TC-09 | No `Cart` record, so the order webhook skips the order | — | ⬜ | — |
 | TC-11 | Buy-now (wallet) from the cart page | Shop Pay / Apple Pay button on `/cart` | Known gap: no product ID, so the event is let through | — | ⬜ | — |
@@ -77,6 +77,6 @@ The server should only record cart, checkout and order analytics for products th
 | Run | Date | Notes |
 |---|---|---|
 | R1 | 2026-10-15 | Page view passed. Pixel was sending to production (ENV-01), so cart/checkout results were not valid |
-| R2 | 2026-10-16 | Pixel pointed at local tunnel; theme assets served locally (ENV-02). Filter confirmed for add to cart; purchase step pending |
+| R2 | 2026-10-16 | Pixel pointed at local tunnel; theme assets served locally (ENV-02). Filter confirmed for add to cart. Three checkouts were started (carts `hWNI2l1O…`, `hWNI2lE8…`, `hWNI2lYp…`) before the order on `hWNI2lueCZfKaU4oQVxYzkJQ` was placed |
 
 See also: `../analytics-e2e-tests` (an earlier session's run log for the same branch).

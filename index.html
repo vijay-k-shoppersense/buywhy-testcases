@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analytics Filter Tests</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+  :root { --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --border: #d1d9e0; --head: #f6f8fa; --code: #eff1f3; --link: #0969da; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #3d444d; --head: #151b23; --code: #262c36; --link: #4493f8; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.8em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+  h2 { font-size: 1.35em; border-bottom: 1px solid var(--border); padding-bottom: .3em; margin-top: 2em; }
+  a { color: var(--link); }
+  code { background: var(--code); padding: .1em .35em; border-radius: 4px; font-size: .88em; }
+  .table-wrap { overflow-x: auto; margin: 12px 0 20px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--head); }
+  tr:nth-child(even) td { background: color-mix(in srgb, var(--head) 50%, transparent); }
+  .meta { color: var(--muted); font-size: .9em; }
+  nav a { margin-right: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <nav class="meta"><a href="#" data-doc="TEST_CASES.md">Test cases</a><a href="#" data-doc="README.md">README</a><span id="updated"></span></nav>
+  <article id="doc">Loading…</article>
+</main>
+<script>
+  async function load(doc) {
+    const res = await fetch(doc + '?t=' + Date.now());
+    const md = await res.text();
+    const el = document.getElementById('doc');
+    el.innerHTML = marked.parse(md);
+    el.querySelectorAll('table').forEach(t => { const w = document.createElement('div'); w.className = 'table-wrap'; t.replaceWith(w); w.appendChild(t); });
+    document.getElementById('updated').textContent = ' · loaded ' + new Date().toLocaleTimeString();
+  }
+  document.querySelectorAll('nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); load(a.dataset.doc); }));
+  load('TEST_CASES.md');
+</script>
+</body>
+</html>
