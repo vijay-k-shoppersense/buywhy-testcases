@@ -1,0 +1,9 @@
+{
+  "name": "ss-analytics-filter-tests",
+  "private": true,
+  "type": "module",
+  "description": "Browser end-to-end checks for the skip-analytics-for-non-ShopperSense-products filter",
+  "dependencies": {
+    "playwright": "1.58.2"
+  }
+}

@@ -1,0 +1,14 @@
+import { connect, appFrame } from './lib.mjs';
+const tag = process.argv[2];
+const { ctx } = await connect();
+const p = ctx.pages().find(p => p.url().startsWith('https://admin.shopify.com') && !p.url().includes('/customizer'));
+await p.bringToFront();
+await p.goto('https://admin.shopify.com/store/vijay-shoppersense-dev-non-plus/apps/vj-shoppersense-dev/app/products/a2a3e134-7d4a-4336-a1ec-9f2aba7eeba9/analytics', { waitUntil: 'load' });
+const f = await appFrame(p, 'text=/view report/i', 60000);
+await p.waitForTimeout(3000);
+await f.getByText(/view report/i).first().click();
+await p.waitForTimeout(8000);
+await p.screenshot({ path: `analytics2-${tag}.png` });
+const t = await f.evaluate(() => document.body.innerText);
+console.log(t.slice(t.indexOf('Shopper Intent Summary'), t.indexOf('Top 2')));
+process.exit(0);

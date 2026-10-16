@@ -1,0 +1,11 @@
+import { connect, appFrame } from './lib.mjs';
+const { ctx } = await connect();
+const p = ctx.pages().find(p => p.url().startsWith('https://admin.shopify.com') && p.url().includes('/login'));
+await p.bringToFront();
+const f = await appFrame(p, 'input[type="password"]');
+await f.fill('input[type="email"], input[name="email"]', process.env.APP_EMAIL);
+await f.fill('input[type="password"]', process.env.APP_PASSWORD);
+await f.getByRole('button', { name: 'Sign In' }).click();
+await p.waitForTimeout(8000);
+console.log(p.url());
+process.exit(0);
