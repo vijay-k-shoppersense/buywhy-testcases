@@ -125,6 +125,17 @@ table.matrix { width: 100%; border-collapse: separate; border-spacing: 0; backgr
 .matrix th, .matrix td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: left; font-size: 13px; }
 .matrix th { background: var(--soft); font-size: 12px; color: var(--muted); }
 .matrix tr:last-child td { border-bottom: 0; }
+.matrix th.ev-h { text-align: center; }
+.uc-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ico { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 0; flex: none; }
+.ico:hover, .ico:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+.ico svg { width: 12px; height: 12px; }
+.tip { position: fixed; z-index: 60; max-width: min(460px, calc(100vw - 24px)); background: var(--panel); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 12.5px; box-shadow: 0 6px 24px rgba(0,0,0,.18); pointer-events: none; opacity: 0; transition: opacity .12s; }
+.tip.on { opacity: 1; }
+.tip .lbl { margin-top: 6px; }
+.tip .lbl:first-child { margin-top: 0; }
+.tip code { display: block; margin-top: 2px; white-space: pre-wrap; }
+.tip .hint { color: var(--muted); font-size: 11px; margin-top: 6px; }
 .matrix td.cell { text-align: center; cursor: pointer; font-weight: 600; font-size: 12px; }
 .matrix tr.grp td { background: var(--soft); font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
 .table-scroll { overflow-x: auto; margin: 16px 0 40px; }
@@ -219,6 +230,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   <div class="dlg-f"><button class="btn" id="b-defaults">Restore defaults</button><button class="btn primary" data-close>Done</button></div>
 </dialog>
 <div class="toast" id="toast"></div>
+<div class="tip" id="tip" role="tooltip"></div>
 
 <script src="usecases.js"></script>
 <script>
@@ -429,14 +441,43 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     if (key) { const again = document.querySelector(`[data-k="${key}"], [data-n="${key}"]`); if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch {} } }
   }
 
+  // ---------- tooltips (matrix icons) ----------
+  const ICON_INFO = '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="4.2" r="1.2"/><rect x="7" y="6.6" width="2" height="6.4" rx="1"/></svg>';
+  const ICON_LINK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6.5 9.5l3-3"/><path d="M7.5 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1"/><path d="M8.5 11.5l-1 1A2.5 2.5 0 014 9l1-1"/></svg>';
+  function tipHtml(kind, id) {
+    const uc = CASES.find(c => c.id === id); if (!uc) return '';
+    if (kind === 'info') return `<div class="lbl">What ${uc.id} covers</div>${esc(fill(uc.summary))}
+      <div class="lbl">Preconditions</div>${esc(fill(uc.pre))}
+      <div class="lbl">Attribute every event to</div>${esc(attrText(uc))}`;
+    return `<div class="lbl">${uc.url2 ? 'URL 1' : 'Sample URL'}</div><code>${esc(fill(uc.url))}</code>
+      ${uc.url2 ? `<div class="lbl">URL 2</div><code>${esc(fill(uc.url2))}</code>` : ''}
+      <div class="hint">Click the icon to copy${uc.url2 ? ' URL 1' : ''}</div>`;
+  }
+  function showTip(el) {
+    const [kind, id] = el.dataset.tip.split('|');
+    const tip = $('#tip'); tip.innerHTML = tipHtml(kind, id); tip.classList.add('on');
+    const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
+    let left = Math.min(Math.max(12, r.left + r.width / 2 - t.width / 2), window.innerWidth - t.width - 12);
+    let top = r.bottom + 8; if (top + t.height > window.innerHeight - 8) top = r.top - t.height - 8;
+    tip.style.left = left + 'px'; tip.style.top = Math.max(8, top) + 'px';
+  }
+  const hideTip = () => $('#tip').classList.remove('on');
+  document.addEventListener('mouseover', (e) => { const el = e.target.closest('[data-tip]'); if (el) showTip(el); });
+  document.addEventListener('mouseout', (e) => { const el = e.target.closest('[data-tip]'); if (el && !el.contains(e.relatedTarget)) hideTip(); });
+  document.addEventListener('focusin', (e) => { const el = e.target.closest('[data-tip]'); if (el) showTip(el); });
+  document.addEventListener('focusout', (e) => { if (e.target.closest('[data-tip]')) hideTip(); });
+  window.addEventListener('scroll', hideTip, true);
+
   // ---------- render: matrix ----------
   function renderMatrix() {
-    const head = `<tr><th>Use case</th><th>Flow</th>${EVENTS.map(e => `<th>${e.label}</th>`).join('')}<th>Order #</th></tr>`;
+    const head = `<tr><th>Use case</th><th>Flow</th>${EVENTS.map(e => `<th class="ev-h">${e.label}</th>`).join('')}<th>Order #</th></tr>`;
     const rows = GROUPS.map(g => {
       const cs = CASES.filter(c => c.group === g.key);
       if (!cs.length) return '';
       return `<tr class="grp"><td colspan="${EVENTS.length + 3}">${esc(g.label)}</td></tr>` + cs.flatMap(uc => uc.flows.map(fl => `<tr>
-        <td><b>${uc.id}</b> ${esc(fill(uc.title))}</td><td>${FLOWS[fl].short}</td>
+        <td><span class="uc-name"><span><b>${uc.id}</b> ${esc(fill(uc.title))}</span>
+          <button class="ico" data-tip="info|${uc.id}" aria-label="What ${uc.id} covers">${ICON_INFO}</button>
+          <button class="ico" data-tip="url|${uc.id}" data-copy="${esc(fill(uc.url))}" aria-label="Sample URL for ${uc.id}">${ICON_LINK}</button></span></td><td>${FLOWS[fl].short}</td>
         ${EVENTS.map(e => { const r = res(uc.id, fl, e.key), s = r.status || 'not_run';
           return `<td class="cell s-${s}" data-jump="${uc.id}|${fl}" title="${esc(r.notes || '')}">${STATUSES.find(x => x.v === s).label}${r.code ? ` · ${esc(r.code)}` : ''}</td>`; }).join('')}
         <td>${esc(meta(uc.id, fl).order || '')}</td></tr>`)).join('');
