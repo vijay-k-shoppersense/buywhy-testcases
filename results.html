@@ -39,7 +39,7 @@
     el.querySelectorAll('table').forEach(t => { const w = document.createElement('div'); w.className = 'table-wrap'; t.replaceWith(w); w.appendChild(t); });
     document.getElementById('updated').textContent = ' · loaded ' + new Date().toLocaleTimeString();
   }
-  document.querySelectorAll('nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); load(a.dataset.doc); }));
+  document.querySelectorAll('nav a[data-doc]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); load(a.dataset.doc); }));
   load('TEST_CASES.md');
 </script>
 </body>

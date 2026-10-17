@@ -1,0 +1,2 @@
+[00:37:49] Baseline analytics (all rows of the ShopperSense product report)
+[00:38:50] ERROR app frame not found for text=/view report/i

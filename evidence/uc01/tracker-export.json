@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "settings": {
+    "store": "vijay-shoppersense-dev-non-plus.myshopify.com",
+    "storePassword": "",
+    "product": "the-royal-sherwani-set",
+    "productName": "The Royal Sherwani Set",
+    "productId": "10071543513371",
+    "productPrice": "5000.00",
+    "product2": "the-azure-anarkali-suit",
+    "product2Name": "The Azure Anarkali Suit",
+    "nonss": "the-complete-snowboard",
+    "nonssName": "The Complete Snowboard",
+    "nonssPrice": "699.95",
+    "intent": "plateau-breakthrough",
+    "intentName": "Plateau Breakthrough",
+    "trace": "013cbda3-3909-40da-a131-e89d81deaf9d",
+    "exp": "test_wn4y35mpec7xkmrgdasbn",
+    "variant": "variant1",
+    "utm": "facebook",
+    "template": "alternative-pdp",
+    "analyticsUrl": "https://admin.shopify.com/store/vijay-shoppersense-dev-non-plus/apps/vj-shoppersense-dev/app/products/a2a3e134-7d4a-4336-a1ec-9f2aba7eeba9/analytics",
+    "branch": "feature/skip-analytics-non-ss-products",
+    "tester": ""
+  },
+  "results": {
+    "UC-01|atc|pv": {
+      "status": "pass",
+      "notes": "✅ intent-tab-click → HTTP 200 code 3001 (/apps/buywhy; product 10071543513371; intent none; session ss_1792172578870_5lmfpcrq). Visitors 12 → 13 under Current PDP.",
+      "updatedAt": "2026-10-16T17:45:27.801Z",
+      "by": "automation",
+      "before": "12",
+      "code": "3001",
+      "after": "13"
+    },
+    "UC-01|atc|atc": {
+      "status": "pass",
+      "notes": "✅ cta-click → HTTP 200 code 3001 (/api/pixels; product 10071543513371; intent none; session ss_1792172578870_5lmfpcrq). ATC 6 → 7 under Current PDP. Cart line _buywhy_session_id=not attached (by design: tracker only attaches it when the product has a stored intent).",
+      "updatedAt": "2026-10-16T17:45:27.838Z",
+      "by": "automation",
+      "before": "6",
+      "code": "3001",
+      "after": "7"
+    },
+    "UC-01|atc|co": {
+      "status": "pass",
+      "notes": "✅ checkout_page → HTTP 200 code 3001 (/api/pixels; product 10071543513371; intent none; session ss_1792172578870_5lmfpcrq); lineItems 10071543513371:default. Checkout 8 → 9 under Current PDP.",
+      "updatedAt": "2026-10-16T17:45:27.865Z",
+      "by": "automation",
+      "before": "8",
+      "code": "3001",
+      "after": "9"
+    },
+    "UC-01|atc|pu": {
+      "status": "pass",
+      "notes": "✅ Order #CRFKFUI7J. Conversions 0 → 1, revenue $0 → $5000 under Current PDP. Order tags not checked by automation.",
+      "updatedAt": "2026-10-16T17:45:50.631Z",
+      "by": "automation",
+      "before": "0",
+      "after": "5000",
+      "code": "webhook"
+    },
+    "UC-01|buynow|pv": {
+      "status": "pass",
+      "notes": "✅ intent-tab-click → HTTP 200 code 3001 (/apps/buywhy; product 10071543513371; intent none; session ss_1792172771555_6ujqa6l9). Visitors 13 → 14 under Current PDP.",
+      "updatedAt": "2026-10-16T17:48:10.779Z",
+      "by": "automation",
+      "before": "13",
+      "code": "3001",
+      "after": "14"
+    },
+    "UC-01|buynow|atc": {
+      "status": "pass",
+      "notes": "✅ cta-click (ctaType buy-now) sent by the theme tracker to /apps/buywhy; product 10071543513371; intent none; session ss_1792172771555_6ujqa6l9. Response not captured: the page navigated to checkout before it returned. ATC 7 → 8 under Current PDP confirms it was recorded.",
+      "updatedAt": "2026-10-16T17:48:30.579Z",
+      "by": "automation",
+      "before": "7",
+      "code": "not captured",
+      "after": "8"
+    },
+    "UC-01|buynow|co": {
+      "status": "pass",
+      "notes": "✅ checkout_page → HTTP 200 code 3001 (/api/pixels; product 10071543513371; intent none; session ss_1792172771555_6ujqa6l9); lineItems 10071543513371:default. Checkout 9 → 10 under Current PDP.",
+      "updatedAt": "2026-10-16T17:48:10.849Z",
+      "by": "automation",
+      "before": "9",
+      "code": "3001",
+      "after": "10"
+    },
+    "UC-01|buynow|pu": {
+      "status": "pass",
+      "notes": "✅ Order #2X8Y5L2XT. Conversions 1 → 2, revenue $5000 → $10000 under Current PDP. Order tags not checked by automation.",
+      "updatedAt": "2026-10-16T17:48:10.885Z",
+      "by": "automation",
+      "before": "5000",
+      "code": "webhook",
+      "after": "10000"
+    }
+  },
+  "flowMeta": {
+    "UC-01|atc": {
+      "date": "2026-10-16",
+      "session": "ss_1792172578870_5lmfpcrq",
+      "cart": "hWNI2qOrlj9VBXNdOyHRKHeT",
+      "order": "CRFKFUI7J"
+    },
+    "UC-01|buynow": {
+      "date": "2026-10-16",
+      "session": "ss_1792172771555_6ujqa6l9",
+      "cart": "hWNI2qj1sr1bM4Q0PJxe0WXZ",
+      "order": "2X8Y5L2XT"
+    }
+  },
+  "checks": {
+    "UC-01|0": true,
+    "UC-01|1": false,
+    "UC-01|2": true
+  },
+  "caseNotes": {
+    "UC-01": {
+      "notes": "Automated run 2026-10-16 (scripts/uc01.mjs, fresh browser context per flow; payment entered by the tester). Both flows pass, all events attributed to Current PDP / organic. Orders #CRFKFUI7J (ATC) and #2X8Y5L2XT (Buy now), $5,000 each. Observation: _buywhy_session_id is NOT attached to the cart line for organic shoppers (tracker attaches it only when the product has a stored intent), so supporting check 2 is unchecked by design. Order/customer tags not verified. Evidence: evidence/uc01/."
+    }
+  },
+  "ui": {
+    "tab": "cases",
+    "open": [
+      "UC-01"
+    ],
+    "flow": {
+      "UC-01": "buynow"
+    },
+    "q": "",
+    "fg": "",
+    "fs": ""
+  }
+}

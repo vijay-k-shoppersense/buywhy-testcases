@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+import { trackerPage, exportState } from './tracker.mjs';
+const b = await chromium.connectOverCDP('http://localhost:9333');
+const s = JSON.parse(await exportState(await trackerPage(b.contexts()[0])));
+const id = process.argv[2] || 'UC-01';
+for (const [k, v] of Object.entries(s.results)) if (k.startsWith(id + '|')) console.log(k, v.status, 'code=' + v.code, v.before + '→' + v.after, '\n   ', v.notes);
+for (const [k, v] of Object.entries(s.flowMeta)) if (k.startsWith(id + '|')) console.log(k, JSON.stringify(v));
+console.log('checks', JSON.stringify(Object.fromEntries(Object.entries(s.checks).filter(([k]) => k.startsWith(id)))));
+if (process.argv[3]) (await import('node:fs')).writeFileSync(process.argv[3], JSON.stringify(s, null, 2));
+process.exit(0);

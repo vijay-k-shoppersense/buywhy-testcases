@@ -1,0 +1,19 @@
+[17:42:35] Baseline analytics
+[17:42:57] before {"visitors":12,"atc":6,"checkout":8,"conv":0,"revenue":0}
+[17:42:57] Open https://vijay-shoppersense-dev-non-plus.myshopify.com/products/the-royal-sherwani-set
+[17:42:58] ENV-02: served experiment-redirect.js from local repo
+[17:42:58] ENV-02: served analytics-tracker-clean.js from local repo
+[17:42:58] REQ /apps/buywhy intent-tab-click product=10071543513371 intent=null session=ss_1792172578870_5lmfpcrq
+[17:43:02] RESP 200 intent-tab-click code=3001 {"success":true,"code":3001}
+[17:43:05] page state {"tracker":true,"ss":"ss_1792172578870_5lmfpcrq","cookie":"ss_1792172578870_5lmfpcrq","url":"https://vijay-shoppersense-dev-non-plus.myshopify.com/products/the-royal-sherwani-set","pd":"{\"ss_1792172578870_5lmfpcrq\":{\"10071543513371\":{}}}"}
+[17:43:05] Click Add to cart
+[17:43:06] REQ /api/pixels cta-click product=10071543513371 intent=null session=ss_1792172578870_5lmfpcrq
+[17:43:09] RESP 200 cta-click code=3001 {"data":"","success":true,"error":"","message":"","code":3001}
+[17:43:13] cart hWNI2qOrlj9VBXNdOyHRKHeT line props={}
+[17:43:13] Go to /checkout
+[17:43:15] REQ /api/pixels checkout_page product=10071543513371 intent=null session=ss_1792172578870_5lmfpcrq lineItems=10071543513371:default
+[17:43:17] RESP 200 checkout_page code=3001 {"data":"","success":true,"error":"","message":"","code":3001}
+[17:43:25] Fill checkout form
+[17:43:31] HANDOFF: waiting for the tester to enter card details and click Pay now (up to 20 min)
+[17:44:50] final url https://vijay-shoppersense-dev-non-plus.myshopify.com/checkouts/cn/hWNI2qOrlj9VBXNdOyHRKHeT/en-us/thank-you?_r=AQABtUJor confirmation=CRFKFUI7J
+[17:45:27] after#1 {"visitors":13,"atc":7,"checkout":9,"conv":1,"revenue":5000}

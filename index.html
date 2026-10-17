@@ -62,6 +62,13 @@ nav.tabs button { border: 0; background: none; padding: 9px 14px; border-bottom:
 nav.tabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
 
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0 12px; }
+.cats { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 16px 0 0; }
+.cats[hidden] { display: none; }
+.cats .lbl { margin: 0 4px 0 0; }
+.chip { border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 4px 11px; border-radius: 999px; font-size: 12.5px; }
+.chip:hover { background: var(--soft); }
+.chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600; }
+.chip .n { color: var(--muted); font-weight: 400; margin-left: 4px; }
 .filters input[type=search] { flex: 1; min-width: 200px; }
 .field, .filters input, .filters select { border: 1px solid var(--border); background: var(--panel); border-radius: 7px; padding: 6px 9px; }
 .chk { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
@@ -204,6 +211,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 </header>
 
 <main class="wrap">
+  <div class="cats" id="cats" role="group" aria-label="Use case category"></div>
   <div id="v-cases">
     <div class="filters">
       <input type="search" id="q" placeholder="Search id, title, URL, notes…">
@@ -232,11 +240,13 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 <div class="toast" id="toast"></div>
 <div class="tip" id="tip" role="tooltip"></div>
 
-<script src="usecases.js"></script>
+<!-- Load usecases.js with a timestamp so edits show up on a normal refresh (the static server sends no cache headers). -->
+<script>document.write('<script src="usecases.js?t=' + Date.now() + '"><\/script>');</script>
 <script>
 (() => {
   const KEY = 'ss-analytics-test-tracker-v1';
   const EVENTS = window.SS_EVENTS, FLOWS = window.SS_FLOWS, GROUPS = window.SS_GROUPS, CASES = window.SS_USE_CASES;
+  const CATEGORIES = window.SS_CATEGORIES || [{ key: 'happy', label: 'Happy flows' }];
   const STATUSES = [
     { v: 'not_run', label: 'Not run' }, { v: 'pass', label: 'Pass' }, { v: 'fail', label: 'Fail' },
     { v: 'blocked', label: 'Blocked' }, { v: 'na', label: 'N/A' },
@@ -245,7 +255,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 
   // ---------- state ----------
   const fresh = () => ({ version: 1, settings: { ...window.SS_DEFAULT_SETTINGS }, results: {}, flowMeta: {}, checks: {}, caseNotes: {},
-    ui: { tab: 'cases', open: [], flow: {}, q: '', fg: '', fs: '' } });
+    ui: { tab: 'cases', open: [], flow: {}, q: '', fg: '', fs: '', cats: ['happy'] } });
   let storageOk = true;
   function load() {
     try {
@@ -275,6 +285,8 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   const res = (id, flow, ev) => state.results[rk(id, flow, ev)] || {};
   const meta = (id, flow) => state.flowMeta[`${id}|${flow}`] || {};
   const statusOf = (id, flow, ev) => res(id, flow, ev).status || 'not_run';
+  const catOf = (uc) => GROUPS.find(g => g.key === uc.group)?.category || 'happy';
+  const inCats = (uc) => state.ui.cats.includes(catOf(uc));
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
 
   function attrText(uc) {
@@ -304,6 +316,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     return '';
   }
   function stepsText(uc, flow) {
+    if (uc.steps) return uc.steps.map(fill);
     const urls = uc.url2 ? 'Open URL 1, then URL 2' : 'Open the URL';
     const atc = flow === 'buynow' ? 'Click Buy now (or a wallet button)' : 'Click Add to cart';
     return [`${urls} in a fresh session; wait for the page to finish loading.`, `${atc}.`, flow === 'buynow' ? 'You land on checkout.' : 'Go to the cart and click Check out.',
@@ -317,7 +330,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     return out;
   }
   function renderProgress() {
-    const all = allChecks();
+    const all = allChecks(CASES.filter(inCats));
     const c = { pass: 0, fail: 0, blocked: 0, na: 0, not_run: 0 };
     all.forEach(x => c[x.s]++);
     const total = all.length || 1;
@@ -332,6 +345,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   function visibleCases() {
     const q = (state.ui.q || '').toLowerCase().trim();
     return CASES.filter(uc => {
+      if (!inCats(uc)) return false;
       if (state.ui.fg && uc.group !== state.ui.fg) return false;
       if (q) {
         const hay = [uc.id, uc.title, uc.summary, uc.legacy, fill(uc.url), fill(uc.url2 || ''), state.caseNotes[uc.id]?.notes,
@@ -472,7 +486,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   function renderMatrix() {
     const head = `<tr><th>Use case</th><th>Flow</th>${EVENTS.map(e => `<th class="ev-h">${e.label}</th>`).join('')}<th>Order #</th></tr>`;
     const rows = GROUPS.map(g => {
-      const cs = CASES.filter(c => c.group === g.key);
+      const cs = CASES.filter(c => c.group === g.key && inCats(c));
       if (!cs.length) return '';
       return `<tr class="grp"><td colspan="${EVENTS.length + 3}">${esc(g.label)}</td></tr>` + cs.flatMap(uc => uc.flows.map(fl => `<tr>
         <td><span class="uc-name"><span><b>${uc.id}</b> ${esc(fill(uc.title))}</span>
@@ -529,14 +543,27 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   }
 
   // ---------- render all ----------
+  function renderCats() {
+    const count = (key) => CASES.filter(uc => catOf(uc) === key).length;
+    const all = state.ui.cats.length === CATEGORIES.length;
+    $('#cats').innerHTML = `<span class="lbl">Show</span>` +
+      `<button class="chip ${all ? 'on' : ''}" data-cat="*" aria-pressed="${all}">All<span class="n">${CASES.length}</span></button>` +
+      CATEGORIES.map(c => { const on = !all && state.ui.cats.includes(c.key);
+        return `<button class="chip ${on ? 'on' : ''}" data-cat="${c.key}" aria-pressed="${on}">${esc(c.label)}<span class="n">${count(c.key)}</span></button>`; }).join('');
+    const groups = GROUPS.filter(g => state.ui.cats.includes(g.category || 'happy'));
+    if (state.ui.fg && !groups.some(g => g.key === state.ui.fg)) state.ui.fg = '';
+    $('#fg').innerHTML = '<option value="">All groups</option>' + groups.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('');
+    $('#fg').value = state.ui.fg;
+  }
   function renderTabs() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.ui.tab));
+    $('#cats').hidden = state.ui.tab === 'ref';
     $('#v-cases').hidden = state.ui.tab !== 'cases';
     $('#v-matrix').hidden = state.ui.tab !== 'matrix';
     $('#v-ref').hidden = state.ui.tab !== 'ref';
   }
   function renderAll() {
-    renderTabs(); renderProgress();
+    renderTabs(); renderCats(); renderProgress();
     if (state.ui.tab === 'cases') renderList();
     if (state.ui.tab === 'matrix') renderMatrix();
     if (state.ui.tab === 'ref') renderRef();
@@ -555,6 +582,15 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     const t = e.target.closest('button, [data-toggle], td[data-jump]');
     if (!t) return;
     if (t.dataset.tab) { state.ui.tab = t.dataset.tab; save(); renderAll(); return; }
+    if (t.dataset.cat) {
+      const k = t.dataset.cat, cur = state.ui.cats;
+      if (k === '*') state.ui.cats = CATEGORIES.map(c => c.key);
+      else if (e.metaKey || e.ctrlKey || e.shiftKey) {
+        const next = cur.includes(k) ? cur.filter(x => x !== k) : [...cur, k];
+        if (next.length) state.ui.cats = next;
+      } else state.ui.cats = [k];
+      save(); renderAll(); return;
+    }
     if (t.dataset.toggle) {
       const id = t.dataset.toggle; const o = state.ui.open;
       state.ui.open = o.includes(id) ? o.filter(x => x !== id) : [...o, id];
@@ -579,6 +615,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     if (t.dataset.jump) {
       const [id, fl] = t.dataset.jump.split('|');
       state.ui.tab = 'cases'; state.ui.flow[id] = fl; if (!state.ui.open.includes(id)) state.ui.open.push(id);
+      const jc = catOf(CASES.find(c => c.id === id) || {}); if (!state.ui.cats.includes(jc)) state.ui.cats = [...state.ui.cats, jc];
       state.ui.q = ''; state.ui.fg = ''; state.ui.fs = ''; syncFilters(); save(); renderAll();
       $(`#card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
     }
@@ -603,7 +640,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   function deferCard(id) { clearTimeout(cardTimer); cardTimer = setTimeout(() => renderCard(id), 500); }
 
   function syncFilters() { $('#q').value = state.ui.q; $('#fg').value = state.ui.fg; $('#fs').value = state.ui.fs; }
-  $('#fg').innerHTML += GROUPS.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('');
+
   $('#q').addEventListener('input', (e) => { state.ui.q = e.target.value; save(); renderList(); });
   $('#fg').addEventListener('change', (e) => { state.ui.fg = e.target.value; save(); renderList(); });
   $('#fs').addEventListener('change', (e) => { state.ui.fs = e.target.value; save(); renderList(); });
@@ -635,13 +672,13 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   $('#b-json').onclick = () => download(`ss-analytics-tests-${stamp()}.json`, JSON.stringify(state, null, 2), 'application/json');
   $('#b-csv').onclick = () => {
-    const cols = ['Use case', 'Title', 'Group', 'Flow', 'Event', 'Status', 'Code', 'Before', 'After', 'Delta', 'Expected', 'Actual / notes', 'Session ID', 'Cart token', 'Order #', 'Test date', 'Updated', 'By'];
+    const cols = ['Use case', 'Title', 'Category', 'Group', 'Flow', 'Event', 'Status', 'Code', 'Before', 'After', 'Delta', 'Expected', 'Actual / notes', 'Session ID', 'Cart token', 'Order #', 'Test date', 'Updated', 'By'];
     const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [cols.map(q).join(',')];
     CASES.forEach(uc => uc.flows.forEach(fl => EVENTS.forEach(e => {
       const r = res(uc.id, fl, e.key), m = meta(uc.id, fl);
       const b = parseFloat(r.before), a = parseFloat(r.after);
-      lines.push([uc.id, fill(uc.title), GROUPS.find(g => g.key === uc.group)?.label, FLOWS[fl].label, e.label,
+      lines.push([uc.id, fill(uc.title), CATEGORIES.find(c => c.key === catOf(uc))?.label, GROUPS.find(g => g.key === uc.group)?.label, FLOWS[fl].label, e.label,
         STATUSES.find(s => s.v === (r.status || 'not_run')).label, r.code, r.before, r.after, (!isNaN(a) && !isNaN(b)) ? Math.round((a - b) * 100) / 100 : '',
         expectedText(uc, fl, e.key), r.notes, m.session, m.cart, m.order, m.date, r.updatedAt, r.by].map(q).join(','));
     })));

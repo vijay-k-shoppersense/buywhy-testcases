@@ -3,3 +3,5 @@ chrome-profile/
 .env
 *.png
 !evidence/*.png
+!evidence/**/*.png
+.DS_Store
