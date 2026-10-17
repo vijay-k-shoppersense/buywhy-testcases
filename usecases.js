@@ -58,6 +58,33 @@ window.SS_FLOWS = {
   buynow: { label: 'Buy now button', short: 'Buy now' },
 };
 
+// Merchant setup: what the store owner must configure (in Shopify admin and the ShopperSense app)
+// before a use case can be tested. SS_SETUP_BASE is one-time store setup (shown on the Reference tab);
+// SS_SETUP holds reusable per-use-case steps, referenced by key from each use case's `setup` list.
+window.SS_SETUP_BASE = [
+  'Install the ShopperSense (BuyWhy) app and finish Onboarding in the app (Select Theme, Product Template).',
+  'Online Store → Themes → Customize → App embeds: turn ON "BuyWhy Main" in the live theme and Save. Without it no page views, intents or session IDs are tracked.',
+  'Settings → Customer events: the ShopperSense app pixel shows "Connected" (the app registers it on install). It sends add-to-cart and checkout events.',
+  'Settings → Payments: Bogus Gateway active (test mode) so test orders can be paid with card 1.',
+  'If the store is password protected, keep the storefront password handy for testers.',
+];
+
+window.SS_SETUP = {
+  ss: '{productName}: in the ShopperSense app open Products, add {productName}, generate its shopper intents, then open the Customizer and Save. Saving in the Customizer is what makes it a ShopperSense product (ProductIntentDetail rows); a product that was only added but never saved is NOT counted.',
+  ss2: '{product2Name}: same as above: add it in ShopperSense, generate intents, open the Customizer and Save.',
+  nonss: '{nonssName}: nothing to do in ShopperSense. It only needs to exist in Shopify: Active, in stock, and available on the Online Store channel. Do NOT add it to ShopperSense.',
+  intentParam: 'The {intentName} intent (handle "{intent}") must exist among {productName}\'s generated intents. Nothing else to publish: the ?intent= link works once intents are generated and saved.',
+  intentLink: 'Customizer for {productName}: publish the {intentName} intent page and copy its intent PDP link (…?view=shopper-intent&ss_trace_id=…). Enter that ss_trace_id in the tracker Settings (trace).',
+  utm: 'utm_source needs no setup: any value works (the tracker uses "{utm}").',
+  exp: 'Create an A/B experiment for {productName} in the ShopperSense app (Experiment Name, Product, Traffic Allocation, Target Page URL) with a control and a ShopperSense variant ("{variant}"), and start it. Enter its id in the tracker Settings (exp, currently {exp}). Note: a page can be the Control of only ONE experiment per product (also stopped ones); if it is missing from the Control dropdown, edit or delete the experiment that already uses it.',
+  expIntentControl: 'Create the A/B experiment for {productName} with the {intentName} intent page as the CONTROL (Target Page URL) and a ShopperSense variant ("{variant}"), and start it. Enter its id in Settings (exp). Note: a page can be the Control of only ONE experiment per product (also stopped ones); if it is missing from the Control dropdown, edit or delete the experiment that already uses it.',
+  template: 'Online Store → Themes → Customize → Products → Create template "{template}", add the ShopperSense blocks to it and Save. In the experiment set "Query Parameter = Template" to {template}.',
+  buynow: 'Buy now flow: the product page must show dynamic checkout buttons (theme editor → product template → Buy buttons block → "Show dynamic checkout buttons" ON).',
+  walletCart: 'Cart page wallet buttons: Settings → Payments → Shop Pay / Apple Pay / Google Pay enabled, and the cart template shows accelerated checkout buttons.',
+  variants: 'Use a ShopperSense product with at least 2 variants (Products → product → Variants). If {productName} has one variant, set up another ShopperSense product and change the tracker Settings.',
+  oldCart: 'No merchant setup. Needs a tester browser whose cart token already has a Cart record from an earlier ShopperSense add-to-cart.',
+};
+
 const DEFAULT_CHECKS = [
   'Session ID stored (sessionStorage / cookie buywhy_session_id)',
   '_buywhy_session_id attached to the cart line item',
@@ -90,9 +117,11 @@ window.SS_GROUPS = [
 //   source: 'organic' | '{utm}' ; intent: null | '{intentName}' ; exp: null | 'control' | '{variant}'
 // expected: optional per-event override text; supports the same placeholders.
 // steps: optional step list shown instead of the generic steps (used by the edge cases).
+// setup: keys of SS_SETUP the merchant must complete before testing (the Buy now flow adds SS_SETUP.buynow automatically).
 window.SS_USE_CASES = [
   {
     id: 'UC-01', group: 'organic', legacy: 'SS-ST-001–004',
+    setup: ['ss'],
     title: 'Direct / organic shopper',
     summary: 'Shopper lands on the registered product page with no ad, intent or experiment parameters.',
     url: 'https://{store}/products/{product}',
@@ -102,6 +131,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-02', group: 'organic', legacy: 'SS-ST-005–008',
+    setup: ['ss', 'utm'],
     title: 'Ad-click shopper (utm_source)',
     summary: 'Shopper arrives from an ad URL that only carries utm_source.',
     url: 'https://{store}/products/{product}?utm_source={utm}',
@@ -111,6 +141,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-03', group: 'intent', legacy: 'SS-ST-009–012',
+    setup: ['ss', 'intentParam'],
     title: 'Intent shopper, ?intent= parameter',
     summary: 'Shopper lands with an intent parameter and sees personalized content immediately.',
     url: 'https://{store}/products/{product}?intent={intent}',
@@ -120,6 +151,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-04', group: 'intent', legacy: 'customizer URL',
+    setup: ['ss', 'intentLink'],
     title: 'Intent shopper, intent PDP link (ss_trace_id)',
     summary: 'Shopper opens the intent-specific PDP link copied from the customizer.',
     url: 'https://{store}/products/{product}?view=shopper-intent&ss_trace_id={trace}',
@@ -129,6 +161,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-05', group: 'intent', legacy: 'SS-ST-013–016',
+    setup: ['ss', 'intentParam', 'utm'],
     title: 'Intent shopper with utm_source',
     summary: 'Shopper lands with both intent and utm_source parameters.',
     url: 'https://{store}/products/{product}?intent={intent}&utm_source={utm}',
@@ -138,6 +171,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-06', group: 'control', legacy: 'SS-ST-017–020',
+    setup: ['ss', 'exp'],
     title: 'Control group, generic PDP',
     summary: 'Shopper is forced into the control bucket and sees the standard PDP.',
     url: 'https://{store}/products/{product}?sstest={exp}_control',
@@ -147,6 +181,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-07', group: 'control', legacy: 'SS-ST-021–024',
+    setup: ['ss', 'exp', 'utm'],
     title: 'Control group, generic PDP + utm_source',
     summary: 'Control bucket, arriving from an ad.',
     url: 'https://{store}/products/{product}?sstest={exp}_control&utm_source={utm}',
@@ -156,6 +191,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-08', group: 'control', legacy: 'SS-ST-025–028',
+    setup: ['ss', 'expIntentControl'],
     title: 'Control group, intent PDP',
     summary: 'Control bucket where the control is an intent page.',
     url: 'https://{store}/products/{product}?intent={intent}&sstest={exp}_control',
@@ -165,6 +201,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-09', group: 'control', legacy: 'SS-ST-029–032',
+    setup: ['ss', 'expIntentControl', 'utm'],
     title: 'Control group, intent PDP + utm_source',
     summary: 'Intent control page, arriving from an ad.',
     url: 'https://{store}/products/{product}?intent={intent}&sstest={exp}_control&utm_source={utm}',
@@ -174,6 +211,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-10', group: 'variant', legacy: 'SS-ST-033–036',
+    setup: ['ss', 'exp'],
     title: 'Variant group, generic PDP',
     summary: 'Shopper is bucketed into the variant and redirected to the variant PDP.',
     url: 'https://{store}/products/{product}?sstest={exp}_{variant}&view=shopper-intent',
@@ -183,6 +221,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-11', group: 'variant', legacy: 'SS-ST-037–040',
+    setup: ['ss', 'exp', 'utm'],
     title: 'Variant group, generic PDP + utm_source',
     summary: 'Variant bucket, arriving from an ad.',
     url: 'https://{store}/products/{product}?sstest={exp}_{variant}&view=shopper-intent&utm_source={utm}',
@@ -192,6 +231,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-12', group: 'variant', legacy: 'SS-ST-041–044',
+    setup: ['ss', 'intentParam', 'exp'],
     title: 'Variant group, intent PDP',
     summary: 'Variant bucket with an intent parameter, redirected to the variant intent PDP.',
     url: 'https://{store}/products/{product}?intent={intent}&sstest={exp}_{variant}&view=shopper-intent',
@@ -201,6 +241,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-13', group: 'variant', legacy: 'SS-ST-045–048',
+    setup: ['ss', 'intentParam', 'exp', 'utm'],
     title: 'Variant group, intent PDP + utm_source',
     summary: 'Variant intent page, arriving from an ad.',
     url: 'https://{store}/products/{product}?intent={intent}&sstest={exp}_{variant}&view=shopper-intent&utm_source={utm}',
@@ -210,6 +251,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-14', group: 'template', legacy: 'SS-ST-053–056',
+    setup: ['ss', 'template', 'exp'],
     title: 'Template parameter: generic control',
     summary: 'Custom theme template with ShopperSense blocks; control bucket.',
     url: 'https://{store}/products/{product}?view={template}&sstest={exp}_control',
@@ -219,6 +261,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-15', group: 'template', legacy: 'SS-ST-057–060',
+    setup: ['ss', 'template', 'expIntentControl'],
     title: 'Template parameter: intent control',
     summary: 'Custom template, intent page as the control.',
     url: 'https://{store}/products/{product}?view={template}&intent={intent}&sstest={exp}_control',
@@ -228,6 +271,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-16', group: 'template', legacy: 'SS-ST-061–064',
+    setup: ['ss', 'template', 'exp'],
     title: 'Template parameter: generic variant',
     summary: 'Custom template, variant bucket; the redirect must keep the template.',
     url: 'https://{store}/products/{product}?view={template}&sstest={exp}_{variant}',
@@ -237,6 +281,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-17', group: 'template', legacy: 'SS-ST-065–068',
+    setup: ['ss', 'template', 'intentParam', 'exp'],
     title: 'Template parameter: intent variant',
     summary: 'Custom template, variant bucket with an intent.',
     url: 'https://{store}/products/{product}?view={template}&intent={intent}&sstest={exp}_{variant}',
@@ -246,6 +291,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-18', group: 'filter', legacy: 'SS-ST-049–052, TC-02/04/09/10',
+    setup: ['nonss'],
     title: 'Non-ShopperSense product only',
     summary: 'Product exists in Shopify but has no generated intents. With the new filter nothing should be recorded.',
     url: 'https://{store}/products/{nonss}',
@@ -263,6 +309,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-19', group: 'filter', legacy: 'TC-11',
+    setup: ['nonss', 'walletCart'],
     title: 'Buy now (wallet) from the cart page, non-ShopperSense cart',
     summary: 'Shop Pay / Apple Pay / Google Pay button on /cart, where the page has no product context.',
     url: 'https://{store}/cart',
@@ -279,6 +326,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-20', group: 'multi', legacy: 'SS-ST-072, TC-06/08/12',
+    setup: ['ss', 'intentLink', 'nonss'],
     title: 'Mixed cart: ShopperSense + non-ShopperSense product',
     summary: 'Add {productName} via the intent link, then {nonssName}, then check out together.',
     url: 'https://{store}/products/{product}?view=shopper-intent&ss_trace_id={trace}',
@@ -296,6 +344,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-21', group: 'multi', legacy: 'SS-ST-073',
+    setup: ['ss', 'ss2', 'intentLink'],
     title: 'Two ShopperSense products in one cart',
     summary: 'Add {productName} and {product2Name}, both registered, then check out.',
     url: 'https://{store}/products/{product}?view=shopper-intent&ss_trace_id={trace}',
@@ -312,6 +361,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'UC-22', group: 'multi', legacy: 'TC-07',
+    setup: ['ss', 'intentLink'],
     title: 'Checkout started from a different tab',
     summary: 'Intent is set in tab A, the cart is opened and checked out from a new tab B (new session ID, same cart).',
     url: 'https://{store}/products/{product}?view=shopper-intent&ss_trace_id={trace}',
@@ -331,6 +381,7 @@ window.SS_USE_CASES = [
   // ---------------------------------------------------------------------------
   {
     id: 'EC-01', group: 'edge-single', legacy: 'new',
+    setup: ['ss'],
     title: 'Add a ShopperSense product, remove it, leave',
     summary: 'Shopper adds {productName}, removes it from the cart and never checks out.',
     url: 'https://{store}/products/{product}',
@@ -348,6 +399,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-02', group: 'edge-single', legacy: 'new',
+    setup: ['ss'],
     title: 'Add, remove, then add the same ShopperSense product again',
     summary: 'Shopper adds {productName}, removes it, adds it again, then buys it.',
     url: 'https://{store}/products/{product}',
@@ -365,6 +417,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-03', group: 'edge-single', legacy: 'new',
+    setup: ['ss'],
     title: 'Change the quantity in the cart before buying',
     summary: 'Shopper adds 1 × {productName}, changes the quantity to 3 on the cart page, then buys.',
     url: 'https://{store}/products/{product}',
@@ -382,6 +435,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-04', group: 'edge-single', legacy: 'Order #1098 (2026-10-17)',
+    setup: ['ss', 'nonss'],
     title: 'Add a ShopperSense product, remove it, buy a non-ShopperSense product',
     summary: 'Shopper adds {productName}, removes it, adds {nonssName} instead and buys only that. The cart token still has a Cart record from the first add.',
     url: 'https://{store}/products/{product}',
@@ -400,6 +454,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-05', group: 'edge-single', legacy: 'new',
+    setup: ['ss', 'nonss'],
     title: 'Add a non-ShopperSense product, remove it, buy a ShopperSense product',
     summary: 'Shopper adds {nonssName}, removes it, then adds and buys {productName}.',
     url: 'https://{store}/products/{nonss}',
@@ -418,6 +473,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-06', group: 'edge-single', legacy: 'new',
+    setup: ['ss', 'variants'],
     title: 'Swap variants of a ShopperSense product',
     summary: 'Shopper adds variant A, removes it and adds variant B of the same product, then buys.',
     url: 'https://{store}/products/{product}',
@@ -435,6 +491,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-07', group: 'edge-multi', legacy: 'new',
+    setup: ['ss', 'nonss'],
     title: 'Mixed cart, remove the ShopperSense product, buy the rest',
     summary: 'Cart has {productName} + {nonssName}. Shopper removes {productName} and buys only {nonssName}.',
     url: 'https://{store}/products/{product}',
@@ -453,6 +510,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-08', group: 'edge-multi', legacy: 'new',
+    setup: ['ss', 'nonss'],
     title: 'Mixed cart, remove the non-ShopperSense product, buy the rest',
     summary: 'Cart has {productName} + {nonssName}. Shopper removes {nonssName} and buys only {productName}.',
     url: 'https://{store}/products/{product}',
@@ -471,6 +529,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-09', group: 'edge-multi', legacy: 'new',
+    setup: ['ss', 'ss2'],
     title: 'Two ShopperSense products, remove one, buy the other',
     summary: 'Cart has {productName} + {product2Name}. Shopper removes {productName} and buys {product2Name}.',
     url: 'https://{store}/products/{product}',
@@ -489,6 +548,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-10', group: 'edge-multi', legacy: 'new',
+    setup: ['ss', 'ss2', 'nonss'],
     title: 'Two ShopperSense products + a non-ShopperSense product, buy all',
     summary: 'Shopper buys {productName}, {product2Name} and {nonssName} in one order.',
     url: 'https://{store}/products/{product}',
@@ -507,6 +567,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-11', group: 'edge-multi', legacy: 'new',
+    setup: ['ss', 'ss2', 'nonss'],
     title: 'Empty a mixed cart, then buy a different ShopperSense product',
     summary: 'Shopper adds {productName} + {nonssName}, removes both, then adds and buys {product2Name}.',
     url: 'https://{store}/products/{product}',
@@ -525,6 +586,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-12', group: 'edge-buynow', legacy: 'new',
+    setup: ['ss', 'nonss'],
     title: 'Cart has a ShopperSense product; Buy now on a non-ShopperSense product',
     summary: '{productName} sits in the cart. Shopper clicks Buy now on {nonssName} and pays.',
     url: 'https://{store}/products/{product}',
@@ -543,6 +605,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-13', group: 'edge-buynow', legacy: 'new',
+    setup: ['ss', 'nonss'],
     title: 'Cart has a non-ShopperSense product; Buy now on a ShopperSense product',
     summary: '{nonssName} sits in the cart. Shopper clicks Buy now on {productName} and pays.',
     url: 'https://{store}/products/{nonss}',
@@ -561,6 +624,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-14', group: 'edge-reuse', legacy: 'new',
+    setup: ['ss', 'intentLink'],
     title: 'Returning shopper: intent visit first, organic purchase later',
     summary: 'Day 1: shopper adds {productName} from the {intentName} link and leaves. Later (new session, same browser and cart) they open the plain product page and buy.',
     url: 'https://{store}/products/{product}?view=shopper-intent&ss_trace_id={trace}',
@@ -579,6 +643,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-15', group: 'edge-reuse', legacy: 'cart hWNI0VSW… (2026-10-15)',
+    setup: ['nonss', 'oldCart'],
     title: 'Old cart once held a ShopperSense product; buy a non-ShopperSense product days later',
     summary: 'A cart token with a Cart record from an earlier visit is reused for a new order that has no ShopperSense products.',
     url: 'https://{store}/products/{nonss}',
@@ -596,6 +661,7 @@ window.SS_USE_CASES = [
   },
   {
     id: 'EC-16', group: 'edge-reuse', legacy: 'new',
+    setup: ['ss', 'nonss'],
     title: 'Buy a ShopperSense product, then buy a non-ShopperSense product',
     summary: 'Two orders in a row from the same browser: first {productName}, then {nonssName}.',
     url: 'https://{store}/products/{product}',

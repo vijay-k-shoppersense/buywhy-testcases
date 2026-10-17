@@ -64,6 +64,10 @@ nav.tabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0 12px; }
 .cats { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 16px 0 0; }
 .cats[hidden] { display: none; }
+details.verify.setup { border-left: 3px solid var(--accent); padding-left: 8px; }
+.setup-note { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 6px 16px; padding: 7px 10px; border-radius: 6px;
+  background: var(--blocked-bg); border: 1px solid color-mix(in srgb, var(--blocked) 35%, transparent); color: var(--fg); font-size: 12.5px; }
+.setup-note b { color: var(--blocked); white-space: nowrap; }
 .cats .lbl { margin: 0 4px 0 0; }
 .chip { border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 4px 11px; border-radius: 999px; font-size: 12.5px; }
 .chip:hover { background: var(--soft); }
@@ -315,6 +319,17 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     }
     return '';
   }
+  function setupText(uc, flow) {
+    const S = window.SS_SETUP || {};
+    const keys = [...(uc.setup || []), ...(flow === 'buynow' && !(uc.setup || []).includes('buynow') ? ['buynow'] : [])];
+    return keys.filter(k => S[k]).map(k => fill(S[k]));
+  }
+  // A setup step's trailing "Note: …" is shown on its own line as a highlighted callout.
+  function setupStepHtml(text, n) {
+    const i = text.indexOf(' Note: ');
+    if (i < 0) return `${n}. ${esc(text)}<br>`;
+    return `${n}. ${esc(text.slice(0, i))}<span class="setup-note" role="note"><b>ⓘ Note</b><span>${esc(text.slice(i + 7))}</span></span>`;
+  }
   function stepsText(uc, flow) {
     if (uc.steps) return uc.steps.map(fill);
     const urls = uc.url2 ? 'Open URL 1, then URL 2' : 'Open the URL';
@@ -415,7 +430,8 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
           <div><div class="lbl">Original test IDs</div>${esc(uc.legacy || '—')}</div>
         </div>
         <div class="flowtabs">${uc.flows.map(f => `<button data-flow="${uc.id}|${f}" class="${f === fl ? 'on' : ''}">${FLOWS[f].label}</button>`).join('')}</div>
-        <details class="verify" style="margin-bottom:10px"><summary>Steps for this flow</summary><p>${stepsText(uc, fl).map((s, i) => `${i + 1}. ${esc(s)}`).join('<br>')}</p></details>
+        <details class="verify setup" open style="margin-bottom:10px"><summary>Merchant setup (before testing)</summary><p>0. One-time store setup done (Reference tab → Merchant setup).<br>${setupText(uc, fl).map((s, i) => setupStepHtml(s, i + 1)).join('')}</p></details>
+        <details class="verify" style="margin-bottom:10px"><summary>Shopper steps for this flow</summary><p>${stepsText(uc, fl).map((s, i) => `${i + 1}. ${esc(s)}`).join('<br>')}</p></details>
         <div class="flowmeta">
           <label><div class="lbl">Session ID</div><input data-k="${mb}|session" value="${esc(m.session)}" placeholder="ss_…"></label>
           <label><div class="lbl">Cart token</div><input data-k="${mb}|cart" value="${esc(m.cart)}"></label>
@@ -503,6 +519,19 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   function renderRef() {
     const s = state.settings;
     $('#ref').innerHTML = `
+      <section><h3>Merchant setup (one time per store)</h3>
+        <p>Do this once before testing any use case. Each use case card also lists its own <b>Merchant setup</b> (products, intents, experiments, templates) above the shopper steps.</p>
+        <ol>${(window.SS_SETUP_BASE || []).map(x => `<li>${esc(fill(x))}</li>`).join('')}</ol>
+        <p>A product counts as a <b>ShopperSense product</b> only after its intents are generated and the Customizer is saved. Any other product (e.g. <em>${esc(s.nonssName)}</em>) just needs to be live on the store; its analytics are dropped (code 2004).</p>
+      </section>
+      <section><h3>A/B experiment form rules</h3>
+        <ul>
+          <li><b>One experiment per Control page.</b> For each product, a page (Current PDP or an intent page) can be the <b>Control Group</b> of only one experiment. Once experiment 1 uses e.g. Current PDP as its control, Current PDP no longer appears in the Control dropdown when creating another experiment for that product. This includes stopped experiments: edit or delete the experiment that uses the page to free it. (Variant pages are not restricted across experiments.)</li>
+          <li><b>Each page once per experiment.</b> A page chosen for one arm (control or a variant) disappears from the other arms of the same experiment.</li>
+          <li><b>"— Select Page —" is not the product page.</b> It is an empty placeholder and Save stays disabled until every arm has a page. Choose <b>Current PDP</b> for the plain product page.</li>
+          <li><b>Traffic Allocation must total 100%.</b> The control gets whatever the variants don't take; e.g. 10 / 90 sends 90% of visitors to the variant.</li>
+        </ul>
+      </section>
       <section><h3>What the app does</h3>
         <p>ShopperSense (BuyWhy) generates intent-specific product pages (PDPs) for a merchant's products. A shopper arriving from an ad or an intent link sees content matched to their motivation (e.g. <em>${esc(s.intentName)}</em>), and the app can A/B test those pages against a control.</p>
         <p>Analytics answer one question per intent: <b>which shopper intent turns visitors into revenue?</b> Each product's analytics page shows, per intent, Visitors → ATC rate → Checkout rate → CVR, plus Revenue, AOV and RPV, and experiment reports compare control vs variant.</p>
@@ -672,7 +701,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   $('#b-json').onclick = () => download(`ss-analytics-tests-${stamp()}.json`, JSON.stringify(state, null, 2), 'application/json');
   $('#b-csv').onclick = () => {
-    const cols = ['Use case', 'Title', 'Category', 'Group', 'Flow', 'Event', 'Status', 'Code', 'Before', 'After', 'Delta', 'Expected', 'Actual / notes', 'Session ID', 'Cart token', 'Order #', 'Test date', 'Updated', 'By'];
+    const cols = ['Use case', 'Title', 'Category', 'Group', 'Flow', 'Event', 'Status', 'Code', 'Before', 'After', 'Delta', 'Merchant setup', 'Expected', 'Actual / notes', 'Session ID', 'Cart token', 'Order #', 'Test date', 'Updated', 'By'];
     const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [cols.map(q).join(',')];
     CASES.forEach(uc => uc.flows.forEach(fl => EVENTS.forEach(e => {
@@ -680,7 +709,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
       const b = parseFloat(r.before), a = parseFloat(r.after);
       lines.push([uc.id, fill(uc.title), CATEGORIES.find(c => c.key === catOf(uc))?.label, GROUPS.find(g => g.key === uc.group)?.label, FLOWS[fl].label, e.label,
         STATUSES.find(s => s.v === (r.status || 'not_run')).label, r.code, r.before, r.after, (!isNaN(a) && !isNaN(b)) ? Math.round((a - b) * 100) / 100 : '',
-        expectedText(uc, fl, e.key), r.notes, m.session, m.cart, m.order, m.date, r.updatedAt, r.by].map(q).join(','));
+        setupText(uc, fl).join(' | '), expectedText(uc, fl, e.key), r.notes, m.session, m.cart, m.order, m.date, r.updatedAt, r.by].map(q).join(','));
     })));
     download(`ss-analytics-tests-${stamp()}.csv`, lines.join('\n'), 'text/csv');
   };
