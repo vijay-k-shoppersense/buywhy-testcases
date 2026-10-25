@@ -9,6 +9,7 @@ Browser end-to-end checks for the ss-shopify-client branch `feature/skip-analyti
 - Serve the folder (`python3 -m http.server 4400`) and open http://127.0.0.1:4400.
 - Every change is saved to the browser's localStorage (`ss-analytics-test-tracker-v1`). Use **Export JSON** to back up or move results and **Export CSV** to share them.
 - **Settings** fills the URL placeholders (store, products, intent, experiment, utm, template).
+- **Intent tabs block** tab: 17 use cases for the new Intent Tabs block (`feat/intent-tabs-block`): IT-01–IT-08 happy flows and IT-E01–IT-E09 edge cases. It also has retest copies (RT-…) of the 35 existing cases that open a ShopperSense product page. The block changes how the first page view is sent on those pages. A retest copy keeps its own results, so the originals keep their feature/skip-analytics-non-ss-products results. Original and copy link to each other.
 - Use cases live in `usecases.js`. `results.html` shows the automated run results from `TEST_CASES.md`.
 
 ## Setup

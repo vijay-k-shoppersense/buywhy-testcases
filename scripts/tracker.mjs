@@ -23,7 +23,8 @@ export async function track(p, patch) {
     Object.assign(s.checks, patch.checks || {});
     for (const [k, v] of Object.entries(patch.caseNotes || {})) s.caseNotes[k] = { ...(s.caseNotes[k] || {}), ...v };
     if (patch.open) {
-      s.ui.tab = 'cases'; s.ui.q = ''; s.ui.fg = ''; s.ui.fs = '';
+      const tabsView = /^(IT|RT)-/.test(patch.open.id);
+      s.ui.tab = tabsView ? 'tabs' : 'cases'; s.ui.lview = tabsView ? 'tabs' : 'core'; s.ui.q = ''; s.ui.fg = ''; s.ui.fs = '';
       s.ui.open = [...new Set([...(s.ui.open || []), patch.open.id])];
       s.ui.flow = { ...(s.ui.flow || {}), [patch.open.id]: patch.open.flow };
     }

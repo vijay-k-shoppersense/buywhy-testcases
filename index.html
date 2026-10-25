@@ -87,6 +87,10 @@ details.verify.setup { border-left: 3px solid var(--accent); padding-left: 8px; 
 .badges { display: flex; gap: 5px; flex-wrap: wrap; }
 .badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--soft); color: var(--muted); border: 1px solid var(--border); }
 .badge.intent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+button.badge { font: inherit; font-size: 11px; cursor: pointer; }
+.badge.retest { background: var(--blocked-bg); color: var(--blocked); border-color: color-mix(in srgb, var(--blocked) 35%, transparent); }
+.badge.retest:hover { border-color: var(--blocked); }
+.cats .sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 6px; }
 .minis { display: flex; gap: 3px; }
 .mini { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); }
 .card-b { display: none; border-top: 1px solid var(--border); padding: 14px; }
@@ -207,6 +211,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     </div>
     <nav class="tabs" id="tabs">
       <button data-tab="cases">Use cases</button>
+      <button data-tab="tabs">Intent tabs block</button>
       <button data-tab="matrix">Matrix</button>
       <button data-tab="ref">Reference</button>
       <a class="btn small" href="results.html" style="margin-left:auto;align-self:center">Automated run results</a>
@@ -259,7 +264,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 
   // ---------- state ----------
   const fresh = () => ({ version: 1, settings: { ...window.SS_DEFAULT_SETTINGS }, results: {}, flowMeta: {}, checks: {}, caseNotes: {},
-    ui: { tab: 'cases', open: [], flow: {}, q: '', fg: '', fs: '', cats: ['happy'] } });
+    ui: { tab: 'cases', open: [], flow: {}, q: '', fg: '', fs: '', cats: ['happy'], tcats: ['tabs-happy'], lview: 'core' } });
   let storageOk = true;
   function load() {
     try {
@@ -290,7 +295,15 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   const meta = (id, flow) => state.flowMeta[`${id}|${flow}`] || {};
   const statusOf = (id, flow, ev) => res(id, flow, ev).status || 'not_run';
   const catOf = (uc) => GROUPS.find(g => g.key === uc.group)?.category || 'happy';
-  const inCats = (uc) => state.ui.cats.includes(catOf(uc));
+  // Two lists share one UI: 'core' (Use cases tab) and 'tabs' (Intent tabs block tab), each with its own category chips.
+  // Matrix shows whichever list was opened last (switchable there).
+  const viewOfCat = (k) => CATEGORIES.find(c => c.key === k)?.view || 'core';
+  const viewOf = (uc) => viewOfCat(catOf(uc));
+  const curView = () => state.ui.tab === 'tabs' ? 'tabs' : state.ui.tab === 'cases' ? 'core' : (state.ui.lview || 'core');
+  const catsKey = (v) => v === 'tabs' ? 'tcats' : 'cats';
+  const curCats = () => state.ui[catsKey(curView())] || [];
+  const viewCats = (v = curView()) => CATEGORIES.filter(c => (c.view || 'core') === v);
+  const inCats = (uc) => curCats().includes(catOf(uc));
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 1600); }
 
   function attrText(uc) {
@@ -302,6 +315,10 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     return parts.join(', ');
   }
   function expectedText(uc, flow, ev) {
+    const pre = uc.expectedPrefix?.[ev] ? fill(uc.expectedPrefix[ev]) : '';
+    return pre + baseExpectedText(uc, flow, ev);
+  }
+  function baseExpectedText(uc, flow, ev) {
     const o = uc.expected || {};
     if (o[`${ev}_${flow}`]) return fill(o[`${ev}_${flow}`]);
     if (o[ev]) return fill(o[ev]);
@@ -417,6 +434,8 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
           ${a.intent ? `<span class="badge intent">${esc(fill(a.intent))}</span>` : ''}
           ${a.source && a.source !== 'organic' ? `<span class="badge">utm: ${esc(fill(a.source))}</span>` : ''}
           ${a.exp ? `<span class="badge">exp: ${esc(fill(a.exp))}</span>` : ''}
+          ${uc.retestBy ? `<button class="badge retest" data-jump="${uc.retestBy}|${fl}" title="Open the Intent Tabs retest of this use case">Retest: ${uc.retestBy}</button>` : ''}
+          ${uc.retestOf ? `<button class="badge retest" data-jump="${uc.retestOf}|${fl}" title="Open the original use case and its results">Original: ${uc.retestOf}</button>` : ''}
         </span>
         <span class="minis">${minis}</span>
       </div>
@@ -548,6 +567,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
         <tr><td><code>3003</code></td><td>Add to cart already recorded for this cart</td></tr>
         <tr><td><code>3004</code></td><td>Checkout already recorded for this cart</td></tr>
         <tr><td><code>2001</code></td><td>Event type not tracked</td></tr>
+        <tr><td><code>2003</code></td><td>Page view already recorded for this session, product and intent (not counted again)</td></tr>
         <tr><td><code>2004</code></td><td>Dropped: product has no ShopperSense intents (new filter)</td></tr>
         <tr><td><code>1001</code></td><td>Analytics payload missing</td></tr></table>
       </section>
@@ -568,18 +588,31 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
           <tr><td>Shopify admin → Orders</td><td>Order and customer tags like <code>ss_int_…</code></td></tr>
         </table>
       </section>
+      <section><h3>Intent Tabs block (branch feat/intent-tabs-block)</h3>
+        <ul>
+          <li><b>First page view waits for the block.</b> When the block is on a product page, <code>analytics-tracker-clean.js</code> holds back the first <code>intent-tab-click</code> until <code>intent-tabs-block.js</code> has initialised. If that script never runs, no page view is sent (IT-E01).</li>
+          <li><b>Each tab click is a page view.</b> A click calls <code>BuyWhySetIntent</code>, which stores the intent for this session and product in <code>localStorage.buywhy_product_data</code> and sends another <code>intent-tab-click</code>. Later add to cart and checkout events use that stored intent. Clicking the selected tab sends nothing.</li>
+          <li><b>When the block is hidden:</b> the URL carries an intent or experiment (<code>intent</code>, <code>ss_trace_id</code>, <code>sstest</code>, …), "Enable Intent Tabs" is off, the product has no intents, or "Hide after first selection" is on and the shopper already chose. <code>utm_source</code> alone does not hide it.</li>
+          <li><b>Retest copies (RT-…).</b> Every existing case that opens a ShopperSense product page has a retest copy in the Intent tabs block tab, with its own results. The original keeps its results from feature/skip-analytics-non-ss-products. Non-ShopperSense-only cases (UC-18, UC-19, EC-15) render no block and need no retest.</li>
+        </ul>
+      </section>
       <section><h3>Data storage</h3><p>Results are saved in this browser's localStorage under <code>${KEY}</code> on every change. Use <b>Export JSON</b> to back up or move results to another browser, and <b>Export CSV</b> to share a table. Test cases themselves live in <code>usecases.js</code>.</p></section>`;
   }
 
   // ---------- render all ----------
   function renderCats() {
     const count = (key) => CASES.filter(uc => catOf(uc) === key).length;
-    const all = state.ui.cats.length === CATEGORIES.length;
-    $('#cats').innerHTML = `<span class="lbl">Show</span>` +
-      `<button class="chip ${all ? 'on' : ''}" data-cat="*" aria-pressed="${all}">All<span class="n">${CASES.length}</span></button>` +
-      CATEGORIES.map(c => { const on = !all && state.ui.cats.includes(c.key);
+    const v = curView(), vc = viewCats(v), cats = curCats();
+    const all = vc.every(c => cats.includes(c.key));
+    const switcher = state.ui.tab === 'matrix'
+      ? `<span class="lbl">Matrix of</span>` + [['core', 'Use cases'], ['tabs', 'Intent tabs block']].map(([k, l]) =>
+          `<button class="chip ${v === k ? 'on' : ''}" data-lview="${k}" aria-pressed="${v === k}">${l}</button>`).join('') + `<span class="sep"></span>`
+      : '';
+    $('#cats').innerHTML = switcher + `<span class="lbl">Show</span>` +
+      `<button class="chip ${all ? 'on' : ''}" data-cat="*" aria-pressed="${all}">All<span class="n">${CASES.filter(uc => viewOf(uc) === v).length}</span></button>` +
+      vc.map(c => { const on = !all && cats.includes(c.key);
         return `<button class="chip ${on ? 'on' : ''}" data-cat="${c.key}" aria-pressed="${on}">${esc(c.label)}<span class="n">${count(c.key)}</span></button>`; }).join('');
-    const groups = GROUPS.filter(g => state.ui.cats.includes(g.category || 'happy'));
+    const groups = GROUPS.filter(g => cats.includes(g.category || 'happy'));
     if (state.ui.fg && !groups.some(g => g.key === state.ui.fg)) state.ui.fg = '';
     $('#fg').innerHTML = '<option value="">All groups</option>' + groups.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('');
     $('#fg').value = state.ui.fg;
@@ -587,13 +620,13 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   function renderTabs() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.ui.tab));
     $('#cats').hidden = state.ui.tab === 'ref';
-    $('#v-cases').hidden = state.ui.tab !== 'cases';
+    $('#v-cases').hidden = state.ui.tab !== 'cases' && state.ui.tab !== 'tabs';
     $('#v-matrix').hidden = state.ui.tab !== 'matrix';
     $('#v-ref').hidden = state.ui.tab !== 'ref';
   }
   function renderAll() {
     renderTabs(); renderCats(); renderProgress();
-    if (state.ui.tab === 'cases') renderList();
+    if (state.ui.tab === 'cases' || state.ui.tab === 'tabs') renderList();
     if (state.ui.tab === 'matrix') renderMatrix();
     if (state.ui.tab === 'ref') renderRef();
   }
@@ -610,14 +643,20 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   document.addEventListener('click', (e) => {
     const t = e.target.closest('button, [data-toggle], td[data-jump]');
     if (!t) return;
-    if (t.dataset.tab) { state.ui.tab = t.dataset.tab; save(); renderAll(); return; }
+    if (t.dataset.tab) {
+      state.ui.tab = t.dataset.tab;
+      if (t.dataset.tab === 'cases') state.ui.lview = 'core';
+      if (t.dataset.tab === 'tabs') state.ui.lview = 'tabs';
+      state.ui.fg = ''; syncFilters(); save(); renderAll(); return;
+    }
+    if (t.dataset.lview) { state.ui.lview = t.dataset.lview; save(); renderAll(); return; }
     if (t.dataset.cat) {
-      const k = t.dataset.cat, cur = state.ui.cats;
-      if (k === '*') state.ui.cats = CATEGORIES.map(c => c.key);
+      const k = t.dataset.cat, ck = catsKey(curView()), cur = curCats();
+      if (k === '*') state.ui[ck] = viewCats().map(c => c.key);
       else if (e.metaKey || e.ctrlKey || e.shiftKey) {
         const next = cur.includes(k) ? cur.filter(x => x !== k) : [...cur, k];
-        if (next.length) state.ui.cats = next;
-      } else state.ui.cats = [k];
+        if (next.length) state.ui[ck] = next;
+      } else state.ui[ck] = [k];
       save(); renderAll(); return;
     }
     if (t.dataset.toggle) {
@@ -642,9 +681,12 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     }
     if (t.dataset.copy) { copy(t.dataset.copy); return; }
     if (t.dataset.jump) {
-      const [id, fl] = t.dataset.jump.split('|');
-      state.ui.tab = 'cases'; state.ui.flow[id] = fl; if (!state.ui.open.includes(id)) state.ui.open.push(id);
-      const jc = catOf(CASES.find(c => c.id === id) || {}); if (!state.ui.cats.includes(jc)) state.ui.cats = [...state.ui.cats, jc];
+      let [id, fl] = t.dataset.jump.split('|');
+      const juc = CASES.find(c => c.id === id) || {}, jc = catOf(juc), jv = viewOfCat(jc);
+      if (juc.flows && !juc.flows.includes(fl)) fl = juc.flows[0];
+      state.ui.tab = jv === 'tabs' ? 'tabs' : 'cases'; state.ui.lview = jv;
+      state.ui.flow[id] = fl; if (!state.ui.open.includes(id)) state.ui.open.push(id);
+      const ck = catsKey(jv); if (!state.ui[ck].includes(jc)) state.ui[ck] = [...state.ui[ck], jc];
       state.ui.q = ''; state.ui.fg = ''; state.ui.fs = ''; syncFilters(); save(); renderAll();
       $(`#card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
     }
@@ -683,7 +725,9 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     product2: 'Second ShopperSense product handle', product2Name: 'Second ShopperSense product name',
     nonss: 'Non-ShopperSense product handle', nonssName: 'Non-ShopperSense product name', nonssPrice: 'Non-ShopperSense product price',
     intent: 'Intent handle (?intent=)', intentName: 'Intent display name', trace: 'Intent trace ID (ss_trace_id)',
-    exp: 'Experiment ID (sstest)', variant: 'Variant name', utm: 'utm_source value', template: 'Theme template (?view=)', analyticsUrl: 'Analytics page URL',
+    intent2: 'Second intent handle', intent2Name: 'Second intent display name',
+    exp: 'Experiment ID (sstest)', variant: 'Variant name', utm: 'utm_source value', template: 'Theme template (?view=)',
+    tabsView: 'Intent tabs template (?view= for the Intent tabs block tab)', analyticsUrl: 'Analytics page URL',
   };
   function renderSettings() {
     $('#dlg-b').innerHTML = Object.keys(window.SS_DEFAULT_SETTINGS).map(k =>

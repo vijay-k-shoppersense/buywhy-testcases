@@ -1,0 +1,31 @@
+[18:23:43] Baseline analytics (all rows of the Sherwani report)
+[18:24:07] before {"Plateau Breakthrough":{"visitors":31,"atc":9,"checkout":4,"conv":4,"revenue":20000},"Current PDP":{"visitors":23,"atc":10,"checkout":12,"conv":5,"revenue":25000},"Run Recovery Aid":{"visitors":2,"atc":3,"checkout":2,"conv":1,"revenue":5000},"Morning Performance Boost":{"visitors":2,"atc":0,"checkout":0,"conv":0,"revenue":0}}
+[18:24:07] Open https://vijay-shoppersense-dev-non-plus.myshopify.com/products/the-royal-sherwani-set?view=shopper-intent&ss_trace_id=013cbda3-3909-40da-a131-e89d81deaf9d
+[18:24:09] Storefront password page: unlocking
+[18:24:12] REQ vijay-shoppersense-dev-non-plus.myshopify.com/apps/buywhy intent-tab-click product=10071543513371 intent=Plateau Breakthrough session=ss_1792261450329_0nsg3snw
+[18:24:17] RESP 200 intent-tab-click product=10071543513371 code=3001 {"success":true,"code":3001}
+[18:24:18] Add Sherwani to cart
+[18:24:19] REQ tape-freedom-claimed-efforts.trycloudflare.com/api/pixels cta-click product=10071543513371 intent=Plateau Breakthrough session=ss_1792261450329_0nsg3snw
+[18:24:25] RESP 200 cta-click product=10071543513371 code=3001 {"data":"","success":true,"error":"","message":"","code":3001}
+[18:24:28] cart hWNI5GUakgjTHpUTJ0JeKJe8 items=10071543513371 _buywhy_session_id=ss_1792261450329_0nsg3snw
+[18:24:28] Open https://vijay-shoppersense-dev-non-plus.myshopify.com/products/the-complete-snowboard
+[18:24:29] REQ vijay-shoppersense-dev-non-plus.myshopify.com/apps/buywhy intent-tab-click product=10071511433499 intent=null session=ss_1792261450329_0nsg3snw
+[18:24:30] RESP 200 intent-tab-click product=10071511433499 code=2004 {"success":true,"code":2004}
+[18:24:35] Add Snowboard to cart
+[18:24:36] REQ tape-freedom-claimed-efforts.trycloudflare.com/api/pixels cta-click product=10071511433499 intent=null session=ss_1792261450329_0nsg3snw
+[18:24:37] RESP 200 cta-click product=10071511433499 code=2004 {"data":"","success":true,"error":"","message":"","code":2004}
+[18:24:40] cart hWNI5GUakgjTHpUTJ0JeKJe8?key=35363c9cace96e50fdb55fdedc058c5c items=10071511433499,10071543513371 total=569995
+[18:24:45] db after ATC {"cart":{"sessionId":"ss_1792261450329_0nsg3snw","source":"organic","intent":"Plateau Breakthrough","checkoutTimestamp":null,"checkoutLineItems":null},"cartItems":[{"productId":"10071543513371","intent":"Plateau Breakthrough"}],"orders":[]}
+[18:24:45] Go to /checkout
+[18:24:47] REQ tape-freedom-claimed-efforts.trycloudflare.com/api/pixels checkout_page product=10071511433499 intent=null session=ss_1792261450329_0nsg3snw lineItems=10071511433499:default,10071543513371:Plateau Breakthrough
+[18:24:52] RESP 200 checkout_page product=10071511433499 code=3001 {"data":"","success":true,"error":"","message":"","code":3001}
+[18:24:58] Fill checkout address
+[18:25:02] HANDOFF: waiting for the tester to enter card details and click Pay now (up to 30 min)
+[18:25:47] final url https://vijay-shoppersense-dev-non-plus.myshopify.com/checkouts/cn/hWNI5GUakgjTHpUTJ0JeKJe8/en-us/thank-you?_r=AQAB5Mw0P confirmation=QIFQNWAXR
+[18:26:51] db after order {"cart":{"sessionId":"ss_1792261450329_0nsg3snw","source":"organic","intent":"Plateau Breakthrough","checkoutTimestamp":"2026-10-17T18:24:48.906Z","checkoutLineItems":null},"cartItems":[{"productId":"10071543513371","intent":"Plateau Breakthrough"}],"orders":[{"id":"7524515479835","name":"#1103","totalPrice":569995,"sessionId":"ss_1792261450329_0nsg3snw","lineItems":["10071543513371"],"intent":"Plateau Breakthrough"}]}
+[18:26:51] FORWARDED view product=10071543513371 intent=Plateau Breakthrough lineItems=[]
+[18:26:51] FORWARDED add_to_cart product=10071543513371 intent=Plateau Breakthrough lineItems=[]
+[18:26:51] FORWARDED checkout_page product=10071543513371 intent=Plateau Breakthrough lineItems=["10071543513371"]
+[18:26:51] FORWARDED purchase product=10071543513371 intent=Plateau Breakthrough lineItems=["10071543513371"]
+[18:27:17] after {"Plateau Breakthrough":{"visitors":32,"atc":10,"checkout":5,"conv":5,"revenue":25000},"Current PDP":{"visitors":23,"atc":10,"checkout":12,"conv":5,"revenue":25000},"Run Recovery Aid":{"visitors":2,"atc":3,"checkout":2,"conv":1,"revenue":5000},"Morning Performance Boost":{"visitors":2,"atc":0,"checkout":0,"conv":0,"revenue":0}}
+[18:27:17] analytics changes: Plateau Breakthrough.visitors 31→32, Plateau Breakthrough.atc 9→10, Plateau Breakthrough.checkout 4→5, Plateau Breakthrough.conv 4→5, Plateau Breakthrough.revenue 20000→25000

@@ -3,7 +3,7 @@
 // so renaming an id drops its saved results; adding new ones is safe.
 //
 // URL placeholders, filled from Settings in the UI:
-//   {store} {product} {nonss} {product2} {intent} {trace} {exp} {variant} {utm} {template}
+//   {store} {product} {nonss} {product2} {intent} {intent2} {trace} {exp} {variant} {utm} {template} {tabsView}
 
 window.SS_DEFAULT_SETTINGS = {
   store: 'vijay-shoppersense-dev-non-plus.myshopify.com',
@@ -19,11 +19,14 @@ window.SS_DEFAULT_SETTINGS = {
   nonssPrice: '699.95',
   intent: 'plateau-breakthrough',
   intentName: 'Plateau Breakthrough',
+  intent2: 'run-recovery-aid',
+  intent2Name: 'Run Recovery Aid',
   trace: '013cbda3-3909-40da-a131-e89d81deaf9d',
   exp: 'test_wn4y35mpec7xkmrgdasbn',
   variant: 'variant1',
   utm: 'facebook',
   template: 'alternative-pdp',
+  tabsView: 'shopper-intent',
   analyticsUrl: 'https://admin.shopify.com/store/vijay-shoppersense-dev-non-plus/apps/vj-shoppersense-dev/app/products/a2a3e134-7d4a-4336-a1ec-9f2aba7eeba9/analytics',
   branch: 'feature/skip-analytics-non-ss-products',
   tester: '',
@@ -83,6 +86,13 @@ window.SS_SETUP = {
   walletCart: 'Cart page wallet buttons: Settings → Payments → Shop Pay / Apple Pay / Google Pay enabled, and the cart template shows accelerated checkout buttons.',
   variants: 'Use a ShopperSense product with at least 2 variants (Products → product → Variants). If {productName} has one variant, set up another ShopperSense product and change the tracker Settings.',
   oldCart: 'No merchant setup. Needs a tester browser whose cart token already has a Cart record from an earlier ShopperSense add-to-cart.',
+  // Intent Tabs block (branch feat/intent-tabs-block)
+  tabsBranch: 'App code: feat/intent-tabs-block with feature/skip-analytics-non-ss-products merged in (the intent tabs branch alone has no non-ShopperSense filter, so 2004 expectations would fail). Note: the block, analytics-tracker-clean.js and the web pixel must all come from that merged build.',
+  tabsBlock: 'Online Store → Themes → Customize → product template "{tabsView}" (the one the ShopperSense blocks are in; this case\'s URL opens it with ?view={tabsView}) → Add block → Apps → "Intent Tabs" → Save. The other ShopperSense blocks must be in the same template, or a tab click changes nothing on the page. In the ShopperSense app Customizer for {productName} → Intent Tabs: turn ON "Enable Intent Tabs" and Save. {productName} must have generated intents (usage texts) incl. {intentName} and {intent2Name}.',
+  tabsAssets: 'intent-tabs-block.js and intent-tabs-block.css must load (DevTools → Network: 200). If the dev CDN returns 404 (ENV-02), upload both to Content → Files and point intent-tabs-block.liquid at them, like the other blocks. Note: if intent-tabs-block.js does not load, the page view is never sent (see IT-E01).',
+  tabsHide: 'Customizer → Intent Tabs: turn ON "Hide after first selection" and Save.',
+  tabsDisabled: 'Customizer → Intent Tabs: turn OFF "Enable Intent Tabs" and Save (keep the block in the theme template).',
+  tabsNoClick: 'Retest rule: the Intent Tabs block is on the page, but do NOT click any of its buttons, so every expectation of the original use case still applies. Only the page view path changed (it now waits for the block to initialise).',
 };
 
 const DEFAULT_CHECKS = [
@@ -94,9 +104,13 @@ const PARAM_CHECKS = [...DEFAULT_CHECKS, 'Tracking params removed from the brows
 const EXP_CHECKS = [...PARAM_CHECKS, 'Counts update in BOTH the experiment report and the intent analytics report'];
 
 // Categories shown in the tracker's category filter. A use case's category comes from its group.
+// view: 'core' = the "Use cases" tab, 'tabs' = the "Intent tabs block" tab.
 window.SS_CATEGORIES = [
-  { key: 'happy', label: 'Happy flows' },
-  { key: 'edge', label: 'Edge cases' },
+  { key: 'happy', label: 'Happy flows', view: 'core' },
+  { key: 'edge', label: 'Edge cases', view: 'core' },
+  { key: 'tabs-happy', label: 'Intent tabs: happy flows', view: 'tabs' },
+  { key: 'tabs-edge', label: 'Intent tabs: edge cases', view: 'tabs' },
+  { key: 'tabs-retest', label: 'Retest existing cases', view: 'tabs' },
 ];
 
 window.SS_GROUPS = [
@@ -111,6 +125,13 @@ window.SS_GROUPS = [
   { key: 'edge-multi', label: 'Multiple products: add / remove', category: 'edge' },
   { key: 'edge-buynow', label: 'Buy now with an existing cart', category: 'edge' },
   { key: 'edge-reuse', label: 'Reused cart & returning shopper', category: 'edge' },
+  { key: 'it-display', label: 'Intent Tabs: block display & the first page view', category: 'tabs-happy' },
+  { key: 'it-select', label: 'Intent Tabs: choosing an intent → cart → purchase', category: 'tabs-happy' },
+  { key: 'it-edge-load', label: 'Intent Tabs: loading & non-shopper contexts', category: 'tabs-edge' },
+  { key: 'it-edge-switch', label: 'Intent Tabs: switching intent mid-journey', category: 'tabs-edge' },
+  { key: 'it-edge-session', label: 'Intent Tabs: sessions, browser tabs & multiple products', category: 'tabs-edge' },
+  { key: 'rt-happy', label: 'Retest: existing happy flows with the Intent Tabs block on the page', category: 'tabs-retest' },
+  { key: 'rt-edge', label: 'Retest: existing edge cases with the Intent Tabs block on the page', category: 'tabs-retest' },
 ];
 
 // attribution: what every event in the use case should be attributed to.
@@ -679,3 +700,352 @@ window.SS_USE_CASES = [
     },
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Intent Tabs block (feat/intent-tabs-block). Shown in the "Intent tabs block" tab of the tracker.
+// How the block changes analytics (analytics-tracker-clean.js + intent-tabs-block.js):
+// - When <buywhy-intent-tabs-component> is on the page, the first page view (intent-tab-click) waits until
+//   the block initialises (window._buyWhyIntentTabsInitialized); the block then calls BuyWhyCaptureUrlParams.
+// - Each tab click calls window.BuyWhySetIntent: it rewrites the stored intent for the session + product in
+//   localStorage.buywhy_product_data and sends another intent-tab-click. Add to cart / checkout use that intent.
+// - The block is hidden when the URL carries an intent or experiment (intent, ss_trace_id, sstest, …), when
+//   "Enable Intent Tabs" is off, and after a selection when "Hide after first selection" is on.
+// - The server de-duplicates page views per session + product + intent (code 2003).
+// ---------------------------------------------------------------------------
+const TAB_CHECKS = ['Block shows {productName}\'s intents with Overview first; the selected button has aria-pressed="true"', 'window._buyWhyIntentTabsInitialized === true (DevTools console)'];
+
+window.SS_USE_CASES.push(
+  {
+    id: 'IT-01', group: 'it-display', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Block shown on the plain product page, no tab clicked',
+    summary: 'Organic shopper sees the Intent Tabs block with Overview selected and buys without clicking a tab. The first page view must be sent exactly once, after the block initialises.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart. Block enabled for {productName}.',
+    attribution: { source: 'organic', intent: null, exp: null },
+    flows: ['atc', 'buynow'],
+    steps: ['Open the URL in a fresh session and wait for the page to load.', 'Check the block is visible with Overview selected. Do not click any tab.', 'DevTools → Network, filter "apps/buywhy": count the intent-tab-click requests.', 'Click Add to cart (or Buy now), check out and pay.', 'Refresh the analytics report.'],
+    checks: [...TAB_CHECKS, 'Exactly ONE intent-tab-click on load (not zero, not two)'],
+    expected: {
+      pv: 'Exactly one intent-tab-click, sent after the block initialises → 3001 (intent null). Visitors +1 under Current PDP.',
+    },
+  },
+  {
+    id: 'IT-02', group: 'it-select', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Choose an intent tab, then buy',
+    summary: 'Shopper clicks the {intentName} tab and buys. Everything after the click is credited to {intentName}.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: '{intentName}', exp: null },
+    flows: ['atc', 'buynow'],
+    steps: ['Open the URL in a fresh session.', 'Click the {intentName} tab; the page content switches and the tab is highlighted.', 'Click Add to cart (or Buy now), check out and pay.', 'Refresh the analytics report.'],
+    checks: [...TAB_CHECKS, 'localStorage.buywhy_product_data[session][{productId}] has intent {intentName}, its intentId and intentTabsClickedIntent', 'Clicking the already-selected tab again sends no request', 'Cart line carries _buywhy_session_id'],
+    expected: {
+      pv: 'Two intent-tab-click → 3001: on load (Current PDP Visitors +1) and on the click (intent {intentName} + intentId; {intentName} Visitors +1). One session shows in both rows.',
+      atc: 'cta-click → 3001 with intent {intentName} and its intentId. ATC +1 under {intentName}. Cart record and CartItem stored with {intentName}.',
+      atc_buynow: 'Buy now → 3001 with intent {intentName}. ATC +1 under {intentName}.',
+      co: 'checkout_page → 3001, line item intent {intentName}. Checkout +1 under {intentName}.',
+      pu: 'Conversion +1, revenue +{productPrice} under {intentName}.',
+    },
+  },
+  {
+    id: 'IT-03', group: 'it-select', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Switch between two intent tabs, then buy',
+    summary: 'Shopper clicks {intentName}, then {intent2Name}, then buys. Only the last selected intent gets the cart, checkout and conversion.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: '{intent2Name}', exp: null },
+    flows: ['atc'],
+    steps: ['Open the URL in a fresh session.', 'Click {intentName}, then {intent2Name}.', 'Click Add to cart, check out and pay.', 'Refresh the analytics report.'],
+    checks: [...TAB_CHECKS, 'Stored intentId is {intent2Name}\'s, not {intentName}\'s'],
+    expected: {
+      pv: 'Three intent-tab-click → 3001: load (Current PDP +1), {intentName} (+1), {intent2Name} (+1).',
+      atc: 'cta-click → 3001 with intent {intent2Name}. ATC +1 under {intent2Name}; {intentName} ATC unchanged.',
+      co: 'checkout_page → 3001, line item intent {intent2Name}. Checkout +1 under {intent2Name}.',
+      pu: 'Conversion +1, revenue +{productPrice} under {intent2Name}. {intentName}: no conversion.',
+    },
+  },
+  {
+    id: 'IT-04', group: 'it-select', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets', 'utm'],
+    title: 'Ad shopper (utm_source) chooses an intent tab',
+    summary: 'utm_source does not hide the block. Shopper from an ad clicks {intentName}; the ad source must stay on every event.',
+    url: 'https://{store}/products/{product}?utm_source={utm}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: '{utm}', intent: '{intentName}', exp: null },
+    flows: ['atc'],
+    steps: ['Open the URL in a fresh session; the block is visible.', 'Click the {intentName} tab.', 'Click Add to cart, check out and pay.', 'Refresh the analytics report.'],
+    checks: [...TAB_CHECKS, 'source stays {utm} on the tab click and every later event', 'Tracking params removed from the browser URL after load'],
+    expected: {
+      pv: 'Load → 3001, source {utm}, Current PDP +1. Tab click → 3001, source {utm}, {intentName} +1.',
+      atc: 'cta-click → 3001, intent {intentName}, source {utm}. ATC +1 under {intentName} / {utm}.',
+    },
+  },
+  {
+    id: 'IT-05', group: 'it-select', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets', 'tabsHide'],
+    title: '"Hide after first selection": choose, reload, buy',
+    summary: 'With "Hide after first selection" on, the block fades out after the click and stays hidden for this session, while the chosen intent sticks.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: '{intentName}', exp: null },
+    flows: ['atc'],
+    steps: ['Open the URL in a fresh session.', 'Click {intentName}: the block fades out.', 'Reload the page: the block stays hidden and the {intentName} content shows.', 'Click Add to cart, check out and pay.', 'Refresh the analytics report.'],
+    checks: [...TAB_CHECKS, 'Block hidden after the click and after the reload', 'buywhy_product_data entry has intentTabsHidden: true'],
+    expected: {
+      pv: 'Load → 3001 (Current PDP +1). Click → 3001 ({intentName} +1). Reload → intent-tab-click with {intentName} → 2003 (already recorded this session); Visitors not counted twice.',
+      atc: 'cta-click → 3001 with intent {intentName}. ATC +1 under {intentName}.',
+    },
+  },
+  {
+    id: 'IT-06', group: 'it-display', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets', 'intentParam'],
+    title: 'Ad / intent landing (?intent=): block hidden',
+    summary: 'A URL intent hides the block. The page view must still be sent once, with the URL intent.',
+    url: 'https://{store}/products/{product}?intent={intent}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: '{intentName}', exp: null },
+    flows: ['atc', 'buynow'],
+    checks: ['Block element is in the page but not shown (no is-active class)', 'No Current PDP / Overview page view is sent', 'Exactly ONE intent-tab-click on load'],
+    expected: {
+      pv: 'Block hidden. Exactly one intent-tab-click → 3001 with intent {intentName}. Visitors +1 under {intentName} only.',
+    },
+  },
+  {
+    id: 'IT-07', group: 'it-display', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets', 'exp'],
+    title: 'A/B experiment visitor: block hidden',
+    summary: 'An experiment parameter (sstest) hides the block. The page view must still be sent once with the experiment fields.',
+    url: 'https://{store}/products/{product}?sstest={exp}_control',
+    pre: 'Experiment {exp} active. Fresh session.',
+    attribution: { source: 'organic', intent: null, exp: 'control' },
+    flows: ['atc'],
+    checks: ['Block not shown', 'Exactly ONE intent-tab-click on load, carrying sstest', 'Counts update in BOTH the experiment report and the intent analytics report'],
+    expected: {
+      pv: 'Block hidden. Exactly one intent-tab-click → 3001 with sstest {exp}_control. Visitors +1 in the experiment report (control) and under Current PDP.',
+    },
+  },
+  {
+    id: 'IT-08', group: 'it-display', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets', 'tabsDisabled'],
+    title: '"Enable Intent Tabs" off: block in the theme but not shown',
+    summary: 'The block is in the template but disabled. It still initialises, so the page view must not be lost.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: null, exp: null },
+    flows: ['atc'],
+    checks: ['No tabs visible', 'Exactly ONE intent-tab-click on load'],
+    expected: {
+      pv: 'Block not shown, but one intent-tab-click → 3001 is sent. Visitors +1 under Current PDP.',
+    },
+  },
+  // ----- Intent Tabs: edge cases -----
+  {
+    id: 'IT-E01', group: 'it-edge-load', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock'],
+    title: 'intent-tabs-block.js fails to load',
+    summary: 'The block element is in the HTML but its script never runs (404 on the dev CDN, not uploaded to Files, blocked, or a JS error).',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session. DevTools → Network → right-click the intent-tabs-block.js request → Block request URL, then reload.',
+    attribution: { source: 'organic', intent: null, exp: null },
+    flows: ['atc'],
+    steps: ['In DevTools, block the intent-tabs-block.js URL.', 'Open the URL in a fresh session and wait 10 seconds.', 'Check Network for intent-tab-click.', 'Click Add to cart, check out and pay.', 'Refresh the analytics report.'],
+    checks: ['window._buyWhyIntentTabsInitialized is undefined', 'No intent-tab-click request at all (note it if one is sent)'],
+    expected: {
+      pv: 'Should: one intent-tab-click → 3001, Current PDP +1. LIKELY FAIL: analytics-tracker-clean.js skips the first page view while the block is "pending" and nothing else sends it, so the visit is never counted.',
+      atc: 'cta-click → 3001 under Current PDP (not affected by the block).',
+    },
+  },
+  {
+    id: 'IT-E02', group: 'it-edge-switch', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Choose an intent, go back to Overview, then buy',
+    summary: 'Shopper clicks {intentName}, then Overview, then buys. Everything after Overview should be credited to Current PDP.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: null, exp: null },
+    flows: ['atc'],
+    steps: ['Open the URL in a fresh session.', 'Click {intentName}, then click Overview.', 'Console: JSON.parse(localStorage.buywhy_product_data) → note intent, intentId and motivation for {productId}.', 'Click Add to cart, check out and pay.', 'Refresh the analytics report.'],
+    checks: ['After Overview: entry intent is "default" (note whether intentId / motivation still hold {intentName}\'s values)'],
+    expected: {
+      pv: 'Load → 3001 (Current PDP +1). {intentName} click → 3001 ({intentName} +1). Overview click → intent "default": VERIFY the code (2003 expected, Current PDP already counted this session).',
+      atc: 'Should: ATC +1 under Current PDP. LIKELY FAIL: Overview sets intent "default" but leaves {intentName}\'s intentId and motivation in buywhy_product_data, and the server resolves the intent from intentId (ProductIntentDetail), so the ATC is credited to {intentName}.',
+      co: 'Should: Checkout +1 under Current PDP. LIKELY FAIL for the same reason (line item carries the old intentId).',
+      pu: 'Should: conversion under Current PDP. Note which row gets it.',
+    },
+  },
+  {
+    id: 'IT-E03', group: 'it-edge-switch', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Switch intent after adding to cart',
+    summary: 'Shopper adds to cart under {intentName}, then clicks {intent2Name}, then checks out. Checkout reads the current intent; purchase reads the Cart record from the first add to cart.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: '{intentName}', exp: null },
+    flows: ['atc'],
+    steps: ['Open the URL in a fresh session.', 'Click {intentName}, then Add to cart.', 'Back on the product page, click {intent2Name} (do not add again).', 'Check out and pay.', 'Refresh the analytics report.'],
+    checks: ['Note which row gets Checkout and which gets the Conversion'],
+    expected: {
+      pv: 'Load, {intentName} and {intent2Name} → 3001 each (+1 in each row).',
+      atc: 'cta-click → 3001 under {intentName}. ATC +1 under {intentName}.',
+      co: 'checkout_page → 3001; the line item carries {intent2Name} (the pixel reads the current stored intent). VERIFY: Checkout +1 under {intent2Name}.',
+      pu: 'VERIFY: purchase uses the Cart record from the add to cart → conversion under {intentName}. If so, checkout and conversion land in different rows.',
+    },
+  },
+  {
+    id: 'IT-E04', group: 'it-edge-switch', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Add the same product under two intents',
+    summary: 'Shopper adds {productName} under {intentName}, switches to {intent2Name} and adds it again (quantity 2), then buys.',
+    url: 'https://{store}/products/{product}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: '{intentName}', exp: null },
+    flows: ['atc'],
+    steps: ['Open the URL in a fresh session.', 'Click {intentName}, Add to cart.', 'Click {intent2Name}, Add to cart again.', 'Check out (1 line, quantity 2) and pay.', 'Refresh the analytics report.'],
+    checks: ['CartItem rows: one per add, with {intentName} and {intent2Name}', 'Cart record keeps {intentName} (second add is the same session)'],
+    expected: {
+      pv: 'Load, {intentName} and {intent2Name} → 3001 each.',
+      atc: 'Two cta-click → 3001 (both forwarded). VERIFY the report: ATC +1 under {intentName} and +1 under {intent2Name}?',
+      co: 'checkout_page → 3001, one line item (quantity 2) with intent {intent2Name}. VERIFY Checkout row.',
+      pu: 'VERIFY: conversion matched to the first CartItem ({intentName}) or the last ({intent2Name}). Revenue = 2 × {productPrice}.',
+    },
+  },
+  {
+    id: 'IT-E05', group: 'it-edge-session', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'ss2', 'tabsBlock', 'tabsAssets'],
+    title: 'Two ShopperSense products, a different tab on each',
+    summary: 'Shopper picks {intentName} on {productName} and any intent tab on {product2Name}, adds both and buys. Intents are stored per product.',
+    url: 'https://{store}/products/{product}',
+    url2: 'https://{store}/products/{product2}',
+    pre: 'Both products have intents and the block enabled. Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: '{intentName}', exp: null },
+    flows: ['atc'],
+    steps: ['Open URL 1, click {intentName}, Add to cart.', 'Open URL 2, click one of its intent tabs (note which), Add to cart.', 'Check out and pay.', 'Refresh BOTH products\' analytics reports.'],
+    checks: ['Each checkout line item carries its own product\'s intent', 'Going back to URL 1 still highlights {intentName}'],
+    expected: {
+      pv: 'Each product: load → 3001 (Current PDP +1) and tab click → 3001 (+1 on that intent).',
+      atc: 'Both cta-click → 3001, each with its own intent. ATC +1 on each product.',
+      co: 'checkout_page → 3001, two line items, each with its own intent.',
+      pu: 'Conversion recorded. VERIFY the second product (one purchase event carries one product_id, see EC-10).',
+    },
+  },
+  {
+    id: 'IT-E06', group: 'it-edge-session', legacy: 'new (intent tabs) + UC-22',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Tab chosen in browser tab A, checkout from browser tab B',
+    summary: 'Shopper picks {intentName} and adds to cart in tab A, then opens /cart in a new browser tab and checks out there.',
+    url: 'https://{store}/products/{product}',
+    url2: 'https://{store}/cart',
+    pre: 'Fresh session, empty cart. Open URL 1 in tab A; URL 2 in a new tab B.',
+    attribution: { source: 'organic', intent: '{intentName}', exp: null },
+    flows: ['atc'],
+    steps: ['Tab A: open URL 1, click {intentName}, Add to cart.', 'Open a new browser tab B with URL 2 and check out from there.', 'Pay, then refresh the analytics report.'],
+    checks: ['Tab B buywhy_session_id differs from tab A'],
+    expected: {
+      co: 'Should: checkout_page line item keeps {intentName}. KNOWN BUG (UC-22): the theme tracker only reads sessionStorage, creates a new session in tab B and overwrites the buywhy_session_id cookie, so checkout is sent with the new session and intent "default".',
+      pu: 'Conversion under {intentName} (matched via the cart token to the tab A Cart record).',
+    },
+  },
+  {
+    id: 'IT-E07', group: 'it-edge-session', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets', 'tabsHide'],
+    title: 'Returning shopper after "Hide after first selection"',
+    summary: 'Visit 1: shopper picks {intentName} (block hides) and adds to cart. Visit 2 (new session, same browser and cart): the block shows again with Overview; shopper buys without clicking a tab.',
+    url: 'https://{store}/products/{product}',
+    pre: 'One browser profile for both visits. Between visits close all tabs (sessionStorage cleared); keep cookies (the cart).',
+    attribution: { source: 'organic', intent: null, exp: null },
+    flows: ['atc'],
+    steps: ['Visit 1: open the URL, click {intentName}, Add to cart, close all tabs.', 'Visit 2: open the URL again (new session): block visible with Overview.', 'Add to cart again, check out and pay.', 'Refresh the analytics report.'],
+    checks: ['Visit 2 has a new buywhy_session_id and the block is visible again'],
+    expected: {
+      pv: 'Visit 1: load → 3001 (Current PDP), click → 3001 ({intentName}). Visit 2: load → 3001 (Current PDP +1, new session).',
+      atc: 'Visit 1: → 3001 under {intentName}. Visit 2: → 3001 under Current PDP; the Cart record is overwritten with the visit 2 session.',
+      co: 'checkout_page → 3001. VERIFY the intent on the line item (visit 2 session: Current PDP).',
+      pu: 'VERIFY: conversion under Current PDP (Cart record now from visit 2) or {intentName}. Note it.',
+    },
+  },
+  {
+    id: 'IT-E08', group: 'it-edge-load', legacy: 'new (intent tabs) + UC-18',
+    setup: ['tabsBranch', 'tabsBlock', 'nonss'],
+    title: 'Non-ShopperSense product on a template with the block',
+    summary: '{nonssName} uses the same product template, but has no usage texts, so the block renders nothing. Its analytics must still be dropped (2004).',
+    url: 'https://{store}/products/{nonss}',
+    pre: 'Fresh session, empty cart.',
+    attribution: { source: 'organic', intent: null, exp: null },
+    flows: ['atc'],
+    checks: ['No <buywhy-intent-tabs-component> element in the page', 'Analytics page unchanged for every intent row'],
+    expected: {
+      pv: 'No block. intent-tab-click → 2004 (not delayed, not lost).',
+      atc: 'cta-click → 2004.',
+      co: 'checkout_page → 2004.',
+      pu: 'Order skipped: no conversion or revenue anywhere.',
+    },
+  },
+  {
+    id: 'IT-E09', group: 'it-edge-load', legacy: 'new (intent tabs)',
+    setup: ['tabsBranch', 'ss', 'tabsBlock', 'tabsAssets'],
+    title: 'Theme editor preview does not record analytics',
+    summary: 'In the theme editor the block shows (with sample intents if needed) and clicks only move the highlight. The merchant\'s own preview should not count as a shopper visit.',
+    url: 'https://admin.shopify.com/store/{store}/themes',
+    pre: 'Note the Current PDP and {intentName} Visitors before opening the editor.',
+    attribution: { source: 'organic', intent: null, exp: null },
+    flows: ['atc'],
+    steps: ['Online Store → Themes → Customize → product template with the Intent Tabs block.', 'Click a few intent tabs in the preview.', 'Close the editor and refresh the analytics report.'],
+    checks: ['Clicks in the editor send no intent-tab-click (DevTools on the preview frame)'],
+    expected: {
+      pv: 'VERIFY: no Visitors change. In design mode the block marks itself initialised and returns early, so analytics-tracker-clean.js may still send a page view from the preview; note it if Visitors changes.',
+      atc: 'N/A. Mark N/A.',
+      co: 'N/A. Mark N/A.',
+      pu: 'N/A. Mark N/A.',
+    },
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Retest copies of existing use cases that the Intent Tabs block can affect: every case that opens a
+// ShopperSense product page (the first page view now waits for the block). Non-ShopperSense-only cases
+// (UC-18, UC-19, EC-15) render no block and are not affected. A copy keeps its own results, so the
+// original results from feature/skip-analytics-non-ss-products stay untouched.
+// ---------------------------------------------------------------------------
+const RETEST_IDS = ['UC-01', 'UC-02', 'UC-03', 'UC-04', 'UC-05', 'UC-06', 'UC-07', 'UC-08', 'UC-09', 'UC-10', 'UC-11', 'UC-12',
+  'UC-13', 'UC-14', 'UC-15', 'UC-16', 'UC-17', 'UC-20', 'UC-21', 'UC-22',
+  'EC-01', 'EC-02', 'EC-03', 'EC-04', 'EC-05', 'EC-06', 'EC-07', 'EC-08', 'EC-09', 'EC-10', 'EC-11', 'EC-12', 'EC-13', 'EC-14', 'EC-16'];
+const HIDES_BLOCK = /[?&](intent|ss_trace_id|sstest|motive|intentId|s_exp_name)=/;
+
+for (const id of RETEST_IDS) {
+  const uc = window.SS_USE_CASES.find((c) => c.id === id);
+  if (!uc) continue;
+  const rid = 'RT-' + id;
+  uc.retestBy = rid;
+  const hidden = HIDES_BLOCK.test(uc.url);
+  const blockNote = hidden
+    ? 'Intent Tabs block is HIDDEN (URL intent / experiment), but the page view still waits for it to initialise: expect exactly one intent-tab-click, not zero. '
+    : 'Intent Tabs block is VISIBLE with Overview selected (do not click it). The page view is sent once, after the block initialises: expect exactly one per page load, not zero, not two. ';
+  window.SS_USE_CASES.push({
+    ...uc,
+    id: rid,
+    retestOf: id,
+    retestBy: undefined,
+    group: uc.group.startsWith('edge') ? 'rt-edge' : 'rt-happy',
+    legacy: `${id} (${uc.legacy})`,
+    setup: ['tabsBranch', ...(uc.setup || []), 'tabsBlock', 'tabsAssets', 'tabsNoClick'],
+    summary: `Retest of ${id} on the Intent Tabs build. ${uc.summary}`,
+    checks: [...(uc.checks || []), hidden ? 'Block not shown on the URL-intent / experiment page' : 'Block visible with Overview selected', 'Exactly one intent-tab-click per product page load'],
+    expectedPrefix: { pv: blockNote },
+  });
+}
+
+// Intent tabs tab (IT-… and RT-…): open product pages in the template that holds the ShopperSense blocks and the
+// Intent Tabs block (?view={tabsView}). URLs that already pick a template (?view=) or an experiment arm (sstest,
+// the experiment decides the page) are left as they are. The original use cases keep their URLs.
+const withTabsView = (url) => {
+  if (!url || !/\/products\//.test(url) || /[?&](view|sstest)=/.test(url)) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'view={tabsView}';
+};
+for (const uc of window.SS_USE_CASES) {
+  if (!/^(IT|RT)-/.test(uc.id)) continue;
+  uc.url = withTabsView(uc.url);
+  if (uc.url2) uc.url2 = withTabsView(uc.url2);
+}
